@@ -21,7 +21,7 @@ export {
   extractExternalReferences,
 } from './hallucination-detector'
 
-// Queue builder (main export)
+// Queue builder
 export {
   buildTaskQueue,
   buildSingleTask,
@@ -46,3 +46,25 @@ export type {
   ReviewResult,
   PipelineResult,
 } from './review-pipeline'
+
+// Arbitration
+export {
+  detectConflict,
+  runArbitration,
+  runBatchArbitration,
+  getArbitrationSummary,
+} from './arbitration'
+export type {
+  ArbitrationWinner,
+  ArbitrationResult,
+  BatchArbitrationResult,
+} from './arbitration'
+
+// Main orchestrator (primary export)
+export {
+  runOrchestrator,
+  getOrchestratorSummary,
+} from './orchestrator'
+export type {
+  OrchestratorResult,
+} from './orchestrator'
