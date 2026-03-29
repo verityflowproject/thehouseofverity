@@ -27,3 +27,22 @@ export {
   buildSingleTask,
 } from './queue-builder'
 export type { BuildQueueOptions } from './queue-builder'
+
+// Hallucination firewall
+export { checkHallucinationFirewall } from './hallucination-firewall'
+export type {
+  VerifiedPackage,
+  PackageWarning,
+  UnverifiedPackage,
+  FirewallResult,
+} from './hallucination-firewall'
+
+// Review pipeline
+export {
+  runReviewPipeline,
+  getReviewSummary,
+} from './review-pipeline'
+export type {
+  ReviewResult,
+  PipelineResult,
+} from './review-pipeline'
