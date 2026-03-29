@@ -48,11 +48,10 @@ export {
   setProjectState,
   initProjectState,
   mergeProjectState,
-  appendReviewEntry,
+  appendReviewLog,
   appendOpenQuestion,
-  resolveOpenQuestion,
-  sliceStateForModel,
-  acquireStateLock,
-  releaseStateLock,
-  withStateLock,
+  removeOpenQuestion,
+  getProjectStateWithBudget,
+  deleteProjectState,
 } from './project-state'
+

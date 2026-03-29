@@ -2,31 +2,20 @@
  * lib/utils/project-state.ts — ProjectState read/write/merge layer
  *
  * Architecture:
- *   - Redis  : fast in-memory cache (TTL 5 min), keyed by vf:project:{id}:state
  *   - MongoDB: durable store via the ProjectState Mongoose model
- *
- * Every public function connects to both layers transparently.
- * Callers never touch Redis or MongoDB directly for state operations.
  *
  * Optimistic concurrency:
  *   - The `version` field (integer) on the ProjectState document acts as
  *     an optimistic lock. mergeProjectState accepts an expected version and
  *     throws VersionConflictError if the current version differs.
- *   - A coarser Redis SET NX lock (acquireStateLock / releaseStateLock)
- *     serialises concurrent writes within the same server process.
  */
 
 import { v4 as uuidv4 } from 'uuid'
 
-import { redis, REDIS_TTL, RedisKeys } from '@/lib/db/redis'
 import { connectMongoose } from '@/lib/db/mongoose'
 import { ProjectState as ProjectStateModel } from '@/lib/models/ProjectState'
 import { ProjectStateError, VersionConflictError } from './errors'
-import {
-  estimateObjectTokens,
-  buildContextBudget,
-  truncateObjectToFit,
-} from './token-counter'
+import { estimateObjectTokens, truncateToFitBudget } from './token-counter'
 import type {
   ProjectState,
   ReviewLogEntry,
@@ -43,53 +32,16 @@ async function ensureMongoose(): Promise<void> {
 
 /** Convert a Mongoose document to a plain ProjectState object. */
 function toPlain(doc: Record<string, unknown>): ProjectState {
-  // toObject() strips Mongoose internals; we then cast to our type.
   return doc as unknown as ProjectState
-}
-
-// ─── Cache helpers ─────────────────────────────────────────────────────────────
-
-async function cacheState(state: ProjectState): Promise<void> {
-  try {
-    const key   = RedisKeys.projectState(state.projectId)
-    const value = JSON.stringify(state)
-    await redis.set(key, value, 'EX', REDIS_TTL.PROJECT_STATE)
-  } catch {
-    // Cache write failure is non-fatal — MongoDB is the source of truth.
-  }
-}
-
-async function getCachedState(projectId: string): Promise<ProjectState | null> {
-  try {
-    const key  = RedisKeys.projectState(projectId)
-    const raw  = await redis.get(key)
-    if (raw) return JSON.parse(raw) as ProjectState
-  } catch {
-    // Cache read failure is non-fatal — fall through to MongoDB.
-  }
-  return null
-}
-
-async function invalidateCache(projectId: string): Promise<void> {
-  try {
-    await redis.del(RedisKeys.projectState(projectId))
-  } catch { /* non-fatal */ }
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
 /**
- * Get a project’s state.
- * 1. Try Redis cache first (fast, <1ms).
- * 2. Fall back to MongoDB on cache miss and populate the cache.
- * 3. Throw ProjectStateError if the document doesn’t exist.
+ * Get a project's state from MongoDB.
+ * Throws ProjectStateError if the document doesn't exist.
  */
 export async function getProjectState(projectId: string): Promise<ProjectState> {
-  // 1. Redis cache
-  const cached = await getCachedState(projectId)
-  if (cached) return cached
-
-  // 2. MongoDB
   await ensureMongoose()
   const doc = await ProjectStateModel.findOne({ projectId }).lean()
 
@@ -100,20 +52,14 @@ export async function getProjectState(projectId: string): Promise<ProjectState> 
     })
   }
 
-  const state = toPlain(doc as unknown as Record<string, unknown>)
-
-  // 3. Warm the cache
-  await cacheState(state)
-
-  return state
+  return toPlain(doc as unknown as Record<string, unknown>)
 }
 
 // ─── Write ─────────────────────────────────────────────────────────────────────
 
 /**
  * Persist a full ProjectState.
- * Writes MongoDB first (durable), then updates the Redis cache.
- * Bumps the version counter.
+ * Writes to MongoDB and bumps the version counter.
  */
 export async function setProjectState(state: ProjectState): Promise<ProjectState> {
   await ensureMongoose()
@@ -133,9 +79,7 @@ export async function setProjectState(state: ProjectState): Promise<ProjectState
     { new: true, upsert: true, lean: true },
   ) as unknown as Record<string, unknown>
 
-  const newState = toPlain(updated)
-  await cacheState(newState)
-  return newState
+  return toPlain(updated)
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -198,68 +142,40 @@ export async function initProjectState(projectId: string): Promise<ProjectState>
     },
     dependencies: {
       packages:     [],
-      versionMap:   {},
-      knownGotchas: [],
+      devPackages:  [],
+      peerDeps:     [],
+      conflicts:    [],
+      lastVerifiedAt:   now,
+      lastVerifiedBy:   'perplexity' as ModelRole,
     },
     openQuestions: [],
-    reviewLog:     [],
-    activeTask:    null,
+    reviewLog: [],
+    currentTask: {
+      type:        'architecture' as TaskType,
+      description: 'Project initialisation — awaiting first task assignment.',
+      status:      'pending',
+      assignedTo:  null,
+      createdAt:   now,
+    },
   }
 
   const doc = await ProjectStateModel.create(emptyState)
-  const state = toPlain((doc as unknown as { toObject(): Record<string, unknown> }).toObject())
-  await cacheState(state)
-  return state
+  return toPlain(doc.toObject() as unknown as Record<string, unknown>)
 }
 
-// ─── Deep merge ──────────────────────────────────────────────────────────────
+// ─── Merge (Optimistic Lock) ──────────────────────────────────────────────────
 
 /**
- * Deep-merge two plain objects.
- * - Object values: recursively merged.
- * - Array values: REPLACED (not concatenated) by the source array.
- * - Primitives: source always wins.
- * - undefined source values: skipped (preserve target).
- */
-function deepMerge(
-  target: Record<string, unknown>,
-  source: Record<string, unknown>,
-): Record<string, unknown> {
-  const result: Record<string, unknown> = { ...target }
-
-  for (const [key, srcVal] of Object.entries(source)) {
-    if (srcVal === undefined) continue
-
-    const tgtVal = result[key]
-
-    if (
-      srcVal !== null &&
-      typeof srcVal === 'object' &&
-      !Array.isArray(srcVal) &&
-      tgtVal !== null &&
-      typeof tgtVal === 'object' &&
-      !Array.isArray(tgtVal)
-    ) {
-      result[key] = deepMerge(
-        tgtVal as Record<string, unknown>,
-        srcVal as Record<string, unknown>,
-      )
-    } else {
-      result[key] = srcVal
-    }
-  }
-
-  return result
-}
-
-/**
- * Deep-merge a partial patch into the project’s current state.
+ * Merge partial updates into an existing ProjectState.
  *
- * @param projectId       - Target project.
- * @param patch           - Partial state update. Arrays replace their targets.
- * @param expectedVersion - If provided, throws VersionConflictError when the
- *                          current version doesn’t match (optimistic lock).
- * @returns               The updated ProjectState.
+ * Optimistic concurrency control via the version field:
+ * - If expectedVersion is provided and doesn't match the DB version, throws VersionConflictError.
+ * - Otherwise, increments the version and applies the patch.
+ *
+ * @param projectId      - UUID of the project.
+ * @param patch          - Partial ProjectState to merge (shallow merge at top level).
+ * @param expectedVersion - Optional version check for concurrency control.
+ * @returns The updated ProjectState.
  */
 export async function mergeProjectState(
   projectId:       string,
@@ -268,337 +184,162 @@ export async function mergeProjectState(
 ): Promise<ProjectState> {
   await ensureMongoose()
 
-  // Load current state (from cache or MongoDB)
-  const current = await getProjectState(projectId)
+  const current = await ProjectStateModel.findOne({ projectId }).lean()
 
-  // Optimistic concurrency check
-  if (expectedVersion !== undefined && current.version !== expectedVersion) {
-    throw new VersionConflictError({
+  if (!current) {
+    throw new ProjectStateError(`ProjectState not found for project ${projectId}`, {
       projectId,
-      expectedVersion,
-      actualVersion: current.version,
+      code: 'PROJECT_STATE_NOT_FOUND',
     })
   }
 
-  const now     = new Date().toISOString()
-  const merged  = deepMerge(
-    current as unknown as Record<string, unknown>,
-    patch   as unknown as Record<string, unknown>,
-  ) as unknown as ProjectState
+  const currentVersion = (current.version as number) ?? 0
 
-  const updated: ProjectState = {
-    ...merged,
-    version:   current.version + 1,
-    updatedAt: now,
+  if (expectedVersion !== undefined && currentVersion !== expectedVersion) {
+    throw new VersionConflictError({
+      projectId,
+      expectedVersion,
+      actualVersion: currentVersion,
+    })
   }
 
-  return setProjectState(updated)
+  const newVersion = currentVersion + 1
+  const updatedAt  = new Date().toISOString()
+
+  const updated = await ProjectStateModel.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        ...patch,
+        version:   newVersion,
+        updatedAt,
+      },
+    },
+    { new: true, lean: true },
+  ) as unknown as Record<string, unknown>
+
+  if (!updated) {
+    throw new ProjectStateError(
+      `Failed to update ProjectState for project ${projectId}`,
+      { projectId, code: 'UPDATE_FAILED' },
+    )
+  }
+
+  return toPlain(updated)
 }
 
-// ─── Review log append ─────────────────────────────────────────────────────────
+// ─── Append helpers ────────────────────────────────────────────────────────────
 
 /**
- * Append a ReviewLogEntry to the project’s review log.
- * Uses MongoDB $push (atomic) and then invalidates the Redis cache so the
- * next read fetches the updated document.
+ * Append a review log entry.
+ * Uses MongoDB's $push to atomically append without reading the full array.
  */
-export async function appendReviewEntry(
+export async function appendReviewLog(
   projectId: string,
   entry:     ReviewLogEntry,
 ): Promise<void> {
   await ensureMongoose()
 
-  const result = await ProjectStateModel.findOneAndUpdate(
+  await ProjectStateModel.findOneAndUpdate(
     { projectId },
     {
-      $push:      { reviewLog: entry },
-      $inc:       { version:   1 },
-      $set:       { updatedAt: new Date().toISOString() },
-    },
-    { new: true },
-  )
-
-  if (!result) {
-    throw new ProjectStateError(`Cannot append review entry: project ${projectId} not found`, {
-      projectId,
-      code: 'PROJECT_STATE_NOT_FOUND',
-    })
-  }
-
-  await invalidateCache(projectId)
-}
-
-// ─── Open questions ───────────────────────────────────────────────────────────
-
-/**
- * Append an OpenQuestion to the project’s open questions list.
- */
-export async function appendOpenQuestion(
-  projectId: string,
-  question:  Omit<OpenQuestion, 'id' | 'createdAt'>,
-): Promise<OpenQuestion> {
-  await ensureMongoose()
-
-  const full: OpenQuestion = {
-    ...question,
-    id:        uuidv4(),
-    createdAt: new Date().toISOString(),
-  }
-
-  const result = await ProjectStateModel.findOneAndUpdate(
-    { projectId },
-    {
-      $push: { openQuestions: full },
+      $push: { reviewLog: entry },
       $inc:  { version: 1 },
       $set:  { updatedAt: new Date().toISOString() },
     },
-    { new: true },
   )
-
-  if (!result) {
-    throw new ProjectStateError(`Cannot append question: project ${projectId} not found`, {
-      projectId,
-      code: 'PROJECT_STATE_NOT_FOUND',
-    })
-  }
-
-  await invalidateCache(projectId)
-  return full
 }
 
 /**
- * Mark an open question as resolved.
- *
- * @param projectId  - Target project.
- * @param questionId - UUID of the question to resolve.
- * @param resolution - Human-readable resolution text.
- * @param resolvedBy - Which model resolved it.
+ * Append an open question.
  */
-export async function resolveOpenQuestion(
-  projectId:  string,
-  questionId: string,
-  resolution: string,
-  resolvedBy: ModelRole,
+export async function appendOpenQuestion(
+  projectId: string,
+  question:  OpenQuestion,
 ): Promise<void> {
   await ensureMongoose()
 
-  const result = await ProjectStateModel.findOneAndUpdate(
-    { projectId, 'openQuestions.id': questionId },
+  await ProjectStateModel.findOneAndUpdate(
+    { projectId },
     {
-      $set: {
-        'openQuestions.$.resolved':   true,
-        'openQuestions.$.resolution': resolution,
-        'openQuestions.$.resolvedBy': resolvedBy,
-        'openQuestions.$.resolvedAt': new Date().toISOString(),
-        updatedAt:                   new Date().toISOString(),
-      },
-      $inc: { version: 1 },
+      $push: { openQuestions: question },
+      $inc:  { version: 1 },
+      $set:  { updatedAt: new Date().toISOString() },
     },
-    { new: true },
   )
-
-  if (!result) {
-    throw new ProjectStateError(
-      `Question ${questionId} not found in project ${projectId}`,
-      { projectId, code: 'QUESTION_NOT_FOUND' },
-    )
-  }
-
-  await invalidateCache(projectId)
-}
-
-// ─── Context slice per model ────────────────────────────────────────────────────
-
-/**
- * Return a model-appropriate subset of the project state.
- *
- * Different models have very different context windows, so we hand each
- * one only what it actually needs:
- *
- *   Gemini     — full state (1M token window can absorb everything)
- *   Claude     — architecture + unresolved questions + last 20 review entries + activeTask
- *   GPT-4o     — architecture + conventions + unresolved questions + last 15 review entries + activeTask
- *   Codestral  — activeTask + relatedFiles only (pure code-completion model)
- *   Perplexity — architecture + dependencies + last 5 review entries (research model)
- *
- * The slice is then truncated to 75% of the model’s context budget if it’s still too large.
- */
-export async function sliceStateForModel(
-  projectId: string,
-  model:     ModelRole,
-  taskType:  TaskType,
-): Promise<Partial<ProjectState>> {
-  const state = await getProjectState(projectId)
-  const budget = buildContextBudget(model)
-
-  let slice: Partial<ProjectState>
-
-  switch (model) {
-    case 'gemini':
-      // Full state — Gemini’s 1M context can hold everything.
-      slice = state
-      break
-
-    case 'claude':
-      slice = {
-        projectId:     state.projectId,
-        version:       state.version,
-        architecture:  state.architecture,
-        conventions:   state.conventions,
-        openQuestions: state.openQuestions.filter((q) => !q.resolved),
-        reviewLog:     state.reviewLog.slice(-20),
-        activeTask:    state.activeTask,
-        dependencies:  taskType === 'architecture' ? state.dependencies : undefined,
-      }
-      break
-
-    case 'gpt5.4o':
-      slice = {
-        projectId:     state.projectId,
-        version:       state.version,
-        architecture:  state.architecture,
-        conventions:   state.conventions,
-        openQuestions: state.openQuestions.filter((q) => !q.resolved),
-        reviewLog:     state.reviewLog.slice(-15),
-        activeTask:    state.activeTask,
-      }
-      break
-
-    case 'codestral':
-      // Codestral is pure code completion — only needs immediate task context.
-      slice = {
-        projectId:  state.projectId,
-        version:    state.version,
-        activeTask: state.activeTask,
-        // Inject just the related file names for context.
-        architecture: {
-          ...state.architecture,
-          fileTree:   state.architecture.fileTree,
-          dataModels: [],
-          apiRoutes:  [],
-          techStack:  state.architecture.techStack,
-          patterns:   [],
-          adrs:       {},
-        },
-      }
-      break
-
-    case 'perplexity':
-      // Perplexity is the research model — it needs architecture + deps for context.
-      slice = {
-        projectId:    state.projectId,
-        version:      state.version,
-        architecture: state.architecture,
-        dependencies: state.dependencies,
-        reviewLog:    state.reviewLog.slice(-5),
-        activeTask:   state.activeTask,
-      }
-      break
-
-    default:
-      slice = state
-  }
-
-  // Safety: if the slice is still too large, truncate it.
-  const sliceTokens = estimateObjectTokens(slice)
-  if (sliceTokens > budget) {
-    // Truncate the review log further to reclaim tokens.
-    if (slice.reviewLog && slice.reviewLog.length > 5) {
-      slice = { ...slice, reviewLog: slice.reviewLog.slice(-5) }
-    }
-    // Last resort: stringify and truncate by character count.
-    // (We return the string version wrapped in a special key for the caller.)
-    const truncated = truncateObjectToFit(slice, model)
-    try {
-      return JSON.parse(truncated) as Partial<ProjectState>
-    } catch {
-      // If truncation produced invalid JSON, return just the active task.
-      return { projectId: state.projectId, version: state.version, activeTask: state.activeTask }
-    }
-  }
-
-  return slice
-}
-
-// ─── Optimistic locking (Redis SET NX) ────────────────────────────────────────
-
-/** Lock TTL in seconds — after this time the lock auto-expires. */
-const LOCK_TTL_SEC = 30
-
-/**
- * Try to acquire a write lock on a project’s state.
- *
- * Uses Redis SET NX (set if not exists) with a UUID fencing token.
- * The TTL ensures the lock never gets stuck if the holder crashes.
- *
- * @returns The fencing token (string) if acquired, or null if the project
- *          is currently locked by another writer.
- *
- * @example
- *   const token = await acquireStateLock(projectId)
- *   if (!token) throw new Error('State is locked; retry later')
- *   try {
- *     await mergeProjectState(projectId, patch)
- *   } finally {
- *     await releaseStateLock(projectId, token)
- *   }
- */
-export async function acquireStateLock(
-  projectId: string,
-): Promise<string | null> {
-  const key   = `lock:${projectId}`  // vf: prefix added by ioredis
-  const token = uuidv4()
-
-  // SET key token NX EX ttl — returns 'OK' on success, null if already locked
-  const result = await redis.set(key, token, 'EX', LOCK_TTL_SEC, 'NX')
-  return result === 'OK' ? token : null
 }
 
 /**
- * Release a previously acquired state lock.
- *
- * Uses a Lua script to atomically check the token before deleting,
- * preventing one writer from releasing another’s lock.
- *
- * @param projectId - The project whose lock to release.
- * @param token     - The fencing token returned by acquireStateLock.
+ * Remove a resolved question by its ID.
  */
-export async function releaseStateLock(
-  projectId: string,
-  token:     string,
+export async function removeOpenQuestion(
+  projectId:  string,
+  questionId: string,
 ): Promise<void> {
-  const key = `lock:${projectId}`  // vf: prefix added by ioredis
+  await ensureMongoose()
 
-  // Atomic check-and-delete: only delete if the token matches.
-  const lua = `
-    if redis.call('GET', KEYS[1]) == ARGV[1] then
-      return redis.call('DEL', KEYS[1])
-    else
-      return 0
-    end
-  `
-  await redis.eval(lua, 1, key, token)
+  await ProjectStateModel.findOneAndUpdate(
+    { projectId },
+    {
+      $pull: { openQuestions: { id: questionId } },
+      $inc:  { version: 1 },
+      $set:  { updatedAt: new Date().toISOString() },
+    },
+  )
+}
+
+// ─── Context Budget & Truncation ───────────────────────────────────────────────
+
+/**
+ * Retrieve a ProjectState and truncate it to fit within a target token budget.
+ *
+ * Strategy:
+ * 1. Always keep: architecture.techStack, conventions, currentTask
+ * 2. Truncate large fields:
+ *    - architecture.fileTree
+ *    - reviewLog
+ *    - openQuestions
+ *
+ * @param projectId    - UUID of the project.
+ * @param targetTokens - Target token count (e.g., 8000 for a 16K context).
+ * @returns A truncated ProjectState that fits within the budget.
+ */
+export async function getProjectStateWithBudget(
+  projectId:    string,
+  targetTokens: number,
+): Promise<ProjectState> {
+  const full = await getProjectState(projectId)
+
+  // Estimate current token usage
+  const currentTokens = estimateObjectTokens(full)
+
+  // If already within budget, return as-is
+  if (currentTokens <= targetTokens) {
+    return full
+  }
+
+  // Simple truncation: reduce fileTree, reviewLog, and openQuestions proportionally
+  const fileTreeJson = JSON.stringify(full.architecture.fileTree, null, 2)
+  const reviewLogJson = JSON.stringify(full.reviewLog, null, 2)
+  const openQuestionsJson = JSON.stringify(full.openQuestions, null, 2)
+
+  const truncated: ProjectState = {
+    ...full,
+    architecture: {
+      ...full.architecture,
+      fileTree: JSON.parse(truncateToFitBudget(fileTreeJson, Math.floor(targetTokens * 0.5))),
+    },
+    reviewLog: JSON.parse(truncateToFitBudget(reviewLogJson, Math.floor(targetTokens * 0.3))),
+    openQuestions: JSON.parse(truncateToFitBudget(openQuestionsJson, Math.floor(targetTokens * 0.2))),
+  }
+
+  return truncated
 }
 
 /**
- * Convenience wrapper: acquire lock, run fn, release lock.
- * Re-throws any error from fn after releasing the lock.
+ * Delete a ProjectState (for cleanup or testing).
  */
-export async function withStateLock<T>(
-  projectId: string,
-  fn:        () => Promise<T>,
-): Promise<T> {
-  const token = await acquireStateLock(projectId)
-  if (!token) {
-    throw new ProjectStateError(
-      `Could not acquire state lock for project ${projectId} — another write is in progress.`,
-      { projectId, code: 'STATE_LOCKED', retryable: true },
-    )
-  }
-
-  try {
-    return await fn()
-  } finally {
-    await releaseStateLock(projectId, token)
-  }
+export async function deleteProjectState(projectId: string): Promise<void> {
+  await ensureMongoose()
+  await ProjectStateModel.deleteOne({ projectId })
 }
