@@ -33,7 +33,6 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "exactOptionalPropertyTypes": true,
 
     /* Suppress TypeScript 6.0 deprecation noise for baseUrl (Next.js still needs it) */
     "ignoreDeprecations": "6.0",
