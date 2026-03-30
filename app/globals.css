@@ -85,6 +85,7 @@
   /* Force dark globally — VerityFlow is dark-first */
   html {
     color-scheme: dark;
+    scroll-behavior: smooth;
   }
 
   * {

@@ -3,7 +3,13 @@
 import { useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 
-export default function Error({ error, reset }) {
+export default function Error({ 
+  error, 
+  reset 
+}: { 
+  error: Error & { digest?: string }
+  reset: () => void 
+}) {
   useEffect(() => {
     // Log error to console in development
     console.error('Application error:', error)

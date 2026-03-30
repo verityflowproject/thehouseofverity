@@ -37,8 +37,8 @@ export default function ContactPage() {
                   <p className="text-gray-400 mb-4">
                     For general inquiries, support, or partnership opportunities.
                   </p>
-                  <a href="mailto:hello@verityflow.io" className="text-indigo-400 hover:text-indigo-300 transition-colors">
-                    hello@verityflow.io
+                  <a href="mailto:contact@verityflow.io" className="text-indigo-400 hover:text-indigo-300 transition-colors">
+                    contact@verityflow.io
                   </a>
                 </div>
               </div>

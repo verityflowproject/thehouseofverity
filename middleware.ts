@@ -16,6 +16,18 @@ const PUBLIC_ROUTES = [
   '/register',
   '/api/health',
   '/api/billing/webhook',
+  '/privacy',
+  '/terms',
+  '/cookies',
+  '/pricing',
+  '/faq',
+  '/about',
+  '/blog',
+  '/contact',
+  '/docs',
+  '/changelog',
+  '/status',
+  '/compare',
 ]
 
 // Auth routes that authenticated users should be redirected away from
