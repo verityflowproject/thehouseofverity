@@ -110,10 +110,14 @@ export async function POST(request: NextRequest) {
       sessionId,
       aiModel: response.model,
       taskType: response.taskType,
-      tokensUsed: response.tokensUsed.totalTokens,
+      promptTokens: response.tokensUsed.promptTokens,
+      completionTokens: response.tokensUsed.completionTokens,
+      totalTokens: response.tokensUsed.totalTokens,
       estimatedCostUsd: response.tokensUsed.estimatedCostUsd,
+      success: !response.flaggedIssues.some((i) => i.severity === 'error'),
       durationMs: response.latencyMs,
       createdAt: new Date(),
+      updatedAt: new Date(),
     }))
 
     await UsageLog.insertMany(usageLogs)
