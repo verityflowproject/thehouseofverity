@@ -445,8 +445,117 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Essential FAQs Section */}
+      <section className="py-24 relative">
+        <div className="container mx-auto px-6">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-12">
+              <div className="text-sm text-indigo-400 uppercase tracking-wider mb-4">FAQ</div>
+              <h2 className="text-5xl font-bold mb-4">Questions, answered.</h2>
+            </div>
+
+            {/* FAQ Items */}
+            <div className="space-y-4">
+              <details className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-lg font-medium text-white">Why not just open five tabs?</span>
+                  <span className="text-gray-400 group-open:rotate-45 transition-transform text-2xl">+</span>
+                </summary>
+                <p className="mt-4 text-gray-400 leading-relaxed">
+                  You could. But each tab would forget what the others decided, work from different assumptions, and give you five disconnected outputs to manually reconcile. VerityFlow coordinates them — shared context, structured review, conflict resolution, and a single ProjectState document that every model reads and updates. Five tabs give you five siloed answers. VerityFlow gives you one coherent build.
+                </p>
+              </details>
+
+              <details className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-lg font-medium text-white">How is VerityFlow different from GitHub Copilot or Cursor?</span>
+                  <span className="text-gray-400 group-open:rotate-45 transition-transform text-2xl">+</span>
+                </summary>
+                <p className="mt-4 text-gray-400 leading-relaxed">
+                  Copilot and Cursor are single-model tools — one AI writes the code and reviews the code. VerityFlow uses five specialized models that check each other's work. No model grades its own homework. We also maintain a persistent project state document so context never drifts across a long build session.
+                </p>
+              </details>
+
+              <details className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-lg font-medium text-white">How does VerityFlow actually prevent hallucinations?</span>
+                  <span className="text-gray-400 group-open:rotate-45 transition-transform text-2xl">+</span>
+                </summary>
+                <p className="mt-4 text-gray-400 leading-relaxed">
+                  Before any implementation begins, Perplexity Sonar Pro scans the task for external dependencies and verifies them against current documentation in real time. If a package can't be verified, the task is blocked until it's confirmed. This prevents the most common failure mode in AI coding tools: confidently using a library method that doesn't exist.
+                </p>
+              </details>
+
+              <details className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-lg font-medium text-white">Does context persist between sessions?</span>
+                  <span className="text-gray-400 group-open:rotate-45 transition-transform text-2xl">+</span>
+                </summary>
+                <p className="mt-4 text-gray-400 leading-relaxed">
+                  Yes. ProjectState is a living document that persists across sessions. Architectural decisions, naming conventions, design patterns — anything the council agrees on in session one is still respected in session fifty. Other tools start fresh every time. We remember.
+                </p>
+              </details>
+
+              <details className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-lg font-medium text-white">What happens if a better model comes along for a role?</span>
+                  <span className="text-gray-400 group-open:rotate-45 transition-transform text-2xl">+</span>
+                </summary>
+                <p className="mt-4 text-gray-400 leading-relaxed">
+                  We swap it. The council architecture is permanent. Which model fills each role is not. If GPT-6 outperforms GPT-5.4 on review precision, it replaces it. If a new Gemini beats the 2M context window, we upgrade. The roles stay. The roster evolves.
+                </p>
+              </details>
+            </div>
+
+            {/* CTA */}
+            <div className="mt-12 text-center">
+              <Link href="/faq" className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors text-lg group">
+                See all questions
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <p className="text-sm text-gray-600 mt-2">Pricing, privacy, technical details, and more.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="py-32 relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute inset-0">
+          <div 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full blur-[150px] opacity-20"
+            style={{ 
+              background: `radial-gradient(circle, ${MODEL_COLORS.gpt} 0%, ${MODEL_COLORS.claude} 50%, transparent 70%)`
+            }}
+          />
+        </div>
+
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="text-sm text-indigo-400 uppercase tracking-wider mb-4">READY TO BUILD?</div>
+            <h2 className="text-5xl md:text-6xl font-bold mb-6">
+              Put the whole council to work on your project.
+            </h2>
+            <p className="text-xl text-gray-400 mb-12 max-w-3xl mx-auto">
+              Five AI specialists available 24/7 — no onboarding, no context loss, no hallucinations.
+            </p>
+            
+            <Link href="/register" className="inline-flex items-center gap-2 px-10 py-5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 rounded-lg font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-indigo-500/25">
+              Start building free
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+            
+            <p className="text-sm text-gray-600 mt-8">
+              Free tier: 50 model call rounds. Bring your own API keys. No credit card required.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="border-t border-gray-900 mt-32">
+      <footer className="border-t border-gray-900">
         <div className="container mx-auto px-6 py-16">
           {/* Main Footer Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">

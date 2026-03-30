@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Menu, X, Search, ChevronDown, Mail } from 'lucide-react'
+import { Menu, X, Search, ChevronDown, Mail, ArrowLeft, Sparkles } from 'lucide-react'
 
 const FAQ_SECTIONS = [
   {
     title: 'About VerityFlow',
+    icon: '⚡',
+    color: '#6366f1',
     questions: [
       {
         q: 'What is VerityFlow?',
@@ -36,6 +38,8 @@ const FAQ_SECTIONS = [
   },
   {
     title: 'Pricing & Credits',
+    icon: '💳',
+    color: '#10b981',
     questions: [
       {
         q: 'What counts as a Council session?',
@@ -73,6 +77,8 @@ const FAQ_SECTIONS = [
   },
   {
     title: 'Bring Your Own Keys (BYOK)',
+    icon: '🔑',
+    color: '#f59e0b',
     questions: [
       {
         q: 'What is BYOK?',
@@ -102,92 +108,32 @@ const FAQ_SECTIONS = [
   },
   {
     title: 'Technical',
+    icon: '⚙️',
+    color: '#8b5cf6',
     questions: [
       {
-        q: 'What models does VerityFlow use?',
-        a: 'Claude Opus 4.6 (Architect), GPT-5.4 via OpenAI Responses API (Generalist), Codestral Latest (Implementer), Gemini 3.1 Pro Preview (Refactor), and Perplexity Sonar Pro (Researcher). For simple tasks, VerityFlow\'s smart routing may use lighter variants (Claude Haiku, Gemini Flash, GPT-4o mini) to reduce cost without impacting output quality.'
+        q: 'Does context persist between sessions?',
+        a: 'Yes. Every project has a ProjectState document that persists across all sessions. Architectural decisions, naming conventions, design patterns, dependencies — anything the council agrees on is stored and referenced in future sessions. Other tools start fresh every time. VerityFlow remembers.'
       },
       {
-        q: 'What is the ProjectState document?',
-        a: 'The ProjectState is VerityFlow\'s shared memory system. It\'s a living document stored in MongoDB that every model reads before responding. It contains architectural decisions, naming conventions, verified dependencies, the current task, and the last 20 review log entries. This is why context doesn\'t drift in VerityFlow — every model starts from the same ground truth, regardless of when it joins the session.'
+        q: 'How does the review pipeline work?',
+        a: 'After Perplexity verifies dependencies, the task is categorized (architecture, implementation, refactor). The assigned model generates output. A different model reviews it — GPT reviews Codestral, Codestral reviews Claude. If conflicts arise, a third model arbitrates. The full review log is attached to every output you receive.'
       },
       {
-        q: 'Does VerityFlow store my code?',
-        a: 'VerityFlow stores prompt content and model outputs as part of your project session history. This is what powers the review log and persistent context. You can delete a project and its associated data at any time from the dashboard. We never use your code to train models or share it with third parties.'
+        q: 'What happens if two models disagree?',
+        a: 'Arbitration. A third model (not the generator, not the reviewer) evaluates both positions with full context and makes the final call. The decision is logged in ProjectState. If the same conflict appears in a later session, the arbitration is already resolved.'
       },
       {
-        q: 'What happens when models disagree?',
-        a: 'When the reviewing model flags issues with the implementing model\'s output, VerityFlow triggers an arbitration protocol. Claude re-reads both outputs, compares them against the project\'s architectural decisions, picks the correct approach (or produces a corrected version itself), and writes a rationale you can read in the session log. Every arbitration decision is logged and auditable.'
+        q: 'Can I see which model wrote what?',
+        a: 'Yes. Every Council session produces a review log showing: which model handled the task, which model reviewed it, what issues were flagged, and whether arbitration occurred. Transparency is structural, not optional.'
       },
       {
-        q: 'Can I export my project code?',
-        a: 'Yes. Pro and Teams plans include full project export. You can download all generated code, the complete ProjectState document, and the full session history as a ZIP archive. The Free plan allows copying individual outputs but not bulk export.'
+        q: 'What if a better model comes along?',
+        a: 'We swap it. The council architecture is permanent. Which model fills each role is not. Roles are reviewed when benchmarks shift. If a model earns a better position, it gets one. You\'ll be notified when roster changes happen.'
       },
       {
-        q: 'Does VerityFlow work offline?',
-        a: 'No. VerityFlow requires an internet connection because all AI model calls happen server-side through provider APIs. The ProjectState is also stored in the cloud for persistence across devices and sessions.'
-      },
-      {
-        q: 'How fast is a typical Council session?',
-        a: 'Simple tasks (generate a function, fix a bug) complete in 10-30 seconds. Complex tasks (design a full feature, refactor a module) take 1-3 minutes depending on the number of review rounds. The hallucination firewall adds 3-5 seconds upfront but prevents costly mistakes downstream.'
-      },
-      {
-        q: 'Can I integrate VerityFlow with my IDE?',
-        a: 'Not yet. VerityFlow currently runs as a web application. IDE extensions (VS Code, JetBrains) are on our roadmap for Q2 2026. For now, you can copy-paste between VerityFlow and your editor, or use the export feature to download generated files directly.'
-      }
-    ]
-  },
-  {
-    title: 'Account & Billing',
-    questions: [
-      {
-        q: 'How do I change my plan?',
-        a: 'Go to Dashboard → Billing. You can upgrade or downgrade at any time. Upgrades take effect immediately. Downgrades take effect at the end of your current billing period.'
-      },
-      {
-        q: 'Can I get a refund?',
-        a: 'Subscription charges are non-refundable after the billing period starts. Credit purchases are non-refundable once credits have been used. If you have unused credits and want a refund, contact support@verityflow.io and we\'ll review it case by case.'
-      },
-      {
-        q: 'Do you offer team billing?',
-        a: 'The Teams plan includes team features. Each team member uses the shared session pool. Contact support@verityflow.io for invoicing or custom team arrangements.'
-      },
-      {
-        q: 'What happens to my data if I cancel?',
-        a: 'Your projects, code, and session history remain accessible for 90 days after cancellation. You can download everything during this period. After 90 days, all data is permanently deleted. Reactivating your subscription within 90 days restores full access immediately.'
-      },
-      {
-        q: 'Can I transfer my account to someone else?',
-        a: 'No. Accounts are non-transferable. If you\'re part of a team and need to change ownership, the team admin can remove you and add the new owner through the Teams dashboard. For individual accounts, the new user must create their own account.'
-      },
-      {
-        q: 'Do you offer student or nonprofit discounts?',
-        a: 'Yes. Students with a valid .edu email and registered nonprofits receive 50% off Pro plans. Contact support@verityflow.io with proof of eligibility (student ID or nonprofit documentation) and we\'ll apply the discount manually.'
-      }
-    ]
-  },
-  {
-    title: 'Security & Privacy',
-    questions: [
-      {
-        q: 'Is my data encrypted?',
-        a: 'Yes. All data is encrypted in transit (TLS 1.3) and at rest (AES-256). API keys use an additional encryption layer (AES-256-GCM) with keys stored in a secure vault, never in the database alongside encrypted data.'
-      },
-      {
-        q: 'Who can see my projects?',
-        a: 'Only you. Projects are private by default. On Teams plans, projects can be shared with specific team members you invite. VerityFlow staff never access your projects except during support requests when you explicitly grant temporary access.'
-      },
-      {
-        q: 'Do you train AI models on my code?',
-        a: 'No. VerityFlow does not train models. We use third-party AI providers (Anthropic, OpenAI, etc.) via their APIs. Your prompts and outputs are subject to those providers\' data policies. When using BYOK, you control the relationship directly with each provider.'
-      },
-      {
-        q: 'Is VerityFlow SOC 2 compliant?',
-        a: 'We are working toward SOC 2 Type II certification, expected Q3 2026. Our infrastructure is hosted on AWS in SOC 2-compliant regions, and we follow SOC 2 security best practices today. Enterprise customers can request our current security documentation.'
-      },
-      {
-        q: 'Can I use VerityFlow for proprietary or confidential code?',
-        a: 'Yes. With BYOK, your code goes through your own API accounts with providers like Anthropic and OpenAI, subject to their enterprise data policies (most offer zero-retention options for business accounts). VerityFlow itself stores only what\'s necessary for the review log and can delete it on request.'
+        q: 'Do you train on my code?',
+        a: 'No. Your prompts and outputs are never used to train AI models — not ours (we don\'t train models), not the providers\' (our terms prohibit it). When using BYOK, this goes through your own provider accounts and their terms apply.'
       }
     ]
   }
@@ -196,9 +142,17 @@ const FAQ_SECTIONS = [
 export default function FAQPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [openQuestion, setOpenQuestion] = useState(null)
+  const [openQuestions, setOpenQuestions] = useState({})
 
-  // Filter questions based on search
+  const toggleQuestion = (sectionIndex, questionIndex) => {
+    const key = `${sectionIndex}-${questionIndex}`
+    setOpenQuestions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
+  }
+
+  // Filter FAQs based on search
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) return FAQ_SECTIONS
 
@@ -206,15 +160,12 @@ export default function FAQPage() {
     return FAQ_SECTIONS.map(section => ({
       ...section,
       questions: section.questions.filter(
-        q => q.q.toLowerCase().includes(query) || q.a.toLowerCase().includes(query)
+        q =>
+          q.q.toLowerCase().includes(query) ||
+          q.a.toLowerCase().includes(query)
       )
     })).filter(section => section.questions.length > 0)
   }, [searchQuery])
-
-  const toggleQuestion = (sectionIndex, questionIndex) => {
-    const key = `${sectionIndex}-${questionIndex}`
-    setOpenQuestion(openQuestion === key ? null : key)
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -258,13 +209,14 @@ export default function FAQPage() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
+              aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
 
           {mobileMenuOpen && (
-            <div className="md:hidden mt-4 pb-4 border-t border-gray-800 pt-4 space-y-4">
+            <div className="md:hidden mt-4 pb-4 border-t border-gray-800 pt-4 space-y-4 animate-fade-in">
               <a href="/#how-it-works" className="block text-gray-400 hover:text-white transition-colors">
                 How it works
               </a>
@@ -278,10 +230,10 @@ export default function FAQPage() {
                 Pricing
               </Link>
               <div className="pt-4 space-y-2">
-                <Link href="/login" className="block w-full px-4 py-2 text-center text-gray-300 border border-gray-700 rounded-lg">
+                <Link href="/login" className="block w-full px-4 py-2 text-center text-gray-300 hover:text-white border border-gray-700 rounded-lg transition-colors">
                   Sign in
                 </Link>
-                <Link href="/register" className="block w-full px-5 py-2 text-center bg-indigo-600 rounded-lg font-medium">
+                <Link href="/register" className="block w-full px-5 py-2 text-center bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors font-medium">
                   Get started
                 </Link>
               </div>
@@ -290,144 +242,202 @@ export default function FAQPage() {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <div className="pt-24 pb-20">
-        <div className="container mx-auto px-6">
-          <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-12">
-              <h1 className="text-5xl md:text-6xl font-bold mb-4">
-                Frequently asked questions
-              </h1>
-              <p className="text-xl text-gray-400">
-                Everything you need to know about VerityFlow.
-              </p>
+      {/* Hero Section */}
+      <section className="pt-32 pb-16 px-6 relative overflow-hidden">
+        {/* Animated background glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div 
+            className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-20 animate-pulse-slow"
+            style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)' }}
+          />
+          <div 
+            className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px] opacity-15 animate-pulse-slow"
+            style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)', animationDelay: '1s' }}
+          />
+        </div>
+
+        <div className="container mx-auto max-w-5xl relative z-10">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to home</span>
+          </Link>
+
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-sm mb-6">
+              <Sparkles className="w-4 h-4" />
+              <span>Frequently Asked Questions</span>
             </div>
+            <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-gray-200 to-gray-400 text-transparent bg-clip-text">
+              Questions, answered.
+            </h1>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
+              Everything you need to know about VerityFlow, the AI Council, pricing, and how we're different.
+            </p>
 
-            {/* Search Input */}
-            <div className="mb-12">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search questions..."
-                  className="w-full pl-12 pr-4 py-4 bg-gray-900 border border-gray-800 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            {/* FAQ Sections */}
-            <div className="space-y-12 mb-12">
-              {filteredSections.map((section, sectionIndex) => (
-                <div key={sectionIndex}>
-                  <h2 className="text-2xl font-bold mb-6 text-white">
-                    {section.title}
-                  </h2>
-                  <div className="space-y-3">
-                    {section.questions.map((item, questionIndex) => {
-                      const isOpen = openQuestion === `${sectionIndex}-${questionIndex}`
-                      return (
-                        <div
-                          key={questionIndex}
-                          className="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden transition-colors hover:border-gray-700"
-                        >
-                          <button
-                            onClick={() => toggleQuestion(sectionIndex, questionIndex)}
-                            className="w-full px-6 py-4 flex items-center justify-between text-left"
-                          >
-                            <span className="text-lg font-semibold text-white pr-4">
-                              {item.q}
-                            </span>
-                            <ChevronDown
-                              className={`w-5 h-5 flex-shrink-0 transition-transform ${
-                                isOpen ? 'rotate-180 text-indigo-400' : 'text-gray-500'
-                              }`}
-                            />
-                          </button>
-                          {isOpen && (
-                            <div className="px-6 pb-6 animate-slide-down">
-                              <p className="text-gray-400 leading-relaxed">
-                                {item.a}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* No Results */}
-            {filteredSections.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">
-                  No questions found matching "{searchQuery}"
-                </p>
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  Clear search
-                </button>
-              </div>
-            )}
-
-            {/* Contact CTA */}
-            <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/30 rounded-2xl p-8 text-center">
-              <Mail className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-              <h3 className="text-2xl font-semibold mb-3">
-                Can't find your answer?
-              </h3>
-              <p className="text-gray-400 mb-6">
-                Email us and we'll get back to you within 24 hours.
-              </p>
-              <a
-                href="mailto:support@verityflow.io"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold transition-colors"
-              >
-                support@verityflow.io
-              </a>
+            {/* Search Bar */}
+            <div className="max-w-2xl mx-auto relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search for answers..."
+                className="w-full pl-12 pr-4 py-4 bg-gray-900/50 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+              />
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* FAQ Sections */}
+      <section className="pb-20 px-6">
+        <div className="container mx-auto max-w-5xl">
+          <div className="space-y-16">
+            {filteredSections.map((section, sectionIndex) => (
+              <div key={sectionIndex} className="relative">
+                {/* Section Header */}
+                <div className="mb-8 flex items-center gap-4">
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-lg"
+                    style={{ 
+                      backgroundColor: `${section.color}20`,
+                      border: `1px solid ${section.color}30`,
+                      boxShadow: `0 0 20px ${section.color}20`
+                    }}
+                  >
+                    {section.icon}
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-white">{section.title}</h2>
+                    <p className="text-sm text-gray-500">{section.questions.length} questions</p>
+                  </div>
+                </div>
+
+                {/* Questions */}
+                <div className="space-y-4">
+                  {section.questions.map((item, questionIndex) => {
+                    const key = `${sectionIndex}-${questionIndex}`
+                    const isOpen = openQuestions[key]
+                    
+                    return (
+                      <div
+                        key={questionIndex}
+                        className="group relative bg-gray-900/30 border border-gray-800 rounded-xl overflow-hidden transition-all duration-300 hover:border-gray-700 hover:shadow-xl"
+                        style={{
+                          boxShadow: isOpen ? `0 0 30px ${section.color}15` : 'none'
+                        }}
+                      >
+                        {/* Glow effect on hover */}
+                        <div 
+                          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                          style={{
+                            background: `radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${section.color}10 0%, transparent 50%)`
+                          }}
+                        />
+
+                        <button
+                          onClick={() => toggleQuestion(sectionIndex, questionIndex)}
+                          className="w-full p-6 text-left flex items-start justify-between gap-4 relative z-10"
+                        >
+                          <span className="text-lg font-medium text-white pr-8">{item.q}</span>
+                          <ChevronDown 
+                            className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-300 ${
+                              isOpen ? 'rotate-180 text-indigo-400' : ''
+                            }`}
+                          />
+                        </button>
+
+                        {/* Answer */}
+                        <div 
+                          className={`overflow-hidden transition-all duration-300 ${
+                            isOpen ? 'max-h-96' : 'max-h-0'
+                          }`}
+                        >
+                          <div className="px-6 pb-6 text-gray-400 leading-relaxed relative z-10">
+                            <div 
+                              className="pl-4 border-l-2"
+                              style={{ borderColor: section.color }}
+                            >
+                              {item.a}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Empty State */}
+          {filteredSections.length === 0 && (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">🔍</div>
+              <h3 className="text-2xl font-bold text-white mb-2">No results found</h3>
+              <p className="text-gray-400 mb-6">
+                Try a different search term or browse all questions above.
+              </p>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-colors"
+              >
+                Clear search
+              </button>
+            </div>
+          )}
+
+          {/* Still Have Questions CTA */}
+          <div className="mt-20 p-12 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl text-center relative overflow-hidden">
+            {/* Animated background */}
+            <div className="absolute inset-0 opacity-30">
+              <div 
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full blur-[100px]"
+                style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)' }}
+              />
+            </div>
+
+            <div className="relative z-10">
+              <Mail className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+              <h3 className="text-3xl font-bold mb-3">Still have questions?</h3>
+              <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
+                We're here to help. Send us a message and we'll get back to you within 1-2 business days.
+              </p>
+              <Link
+                href="/contact"
+                className="inline-block px-8 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-indigo-500/25"
+              >
+                Contact us
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-900 mt-32">
+      <footer className="border-t border-gray-900 bg-[#0a0a0f]">
         <div className="container mx-auto px-6 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+            <div className="md:col-span-1">
+              <Link href="/" className="flex items-center gap-2 mb-4">
                 <span className="text-xl font-bold">
                   Verity<span className="text-indigo-400">Flow</span>
                 </span>
-              </div>
-              <p className="text-sm text-gray-400 font-medium">Your AI Engineering Firm.</p>
+              </Link>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Five specialized models. One persistent context. Code you can trust.
+                Your AI Engineering Firm.<br />Five models. One team.
               </p>
-              <div className="flex items-center gap-3 pt-2">
-                <a href="https://twitter.com/verityflow" target="_blank" rel="noopener noreferrer" className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                </a>
-                <a href="https://github.com/verityflowproject" target="_blank" rel="noopener noreferrer" className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.840 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                </a>
-              </div>
-              <p className="text-xs text-gray-600 pt-4">© 2026 VerityFlow. All rights reserved.</p>
             </div>
 
             <div>
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Product</h3>
               <ul className="space-y-3 text-sm">
-                <li><a href="/#how-it-works" className="text-gray-400 hover:text-white transition-colors">How it works</a></li>
-                <li><a href="/#council" className="text-gray-400 hover:text-white transition-colors">The AI Council</a></li>
-                <li><Link href="/compare" className="text-gray-400 hover:text-white transition-colors">Compare tools</Link></li>
                 <li><Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link></li>
+                <li><Link href="/compare" className="text-gray-400 hover:text-white transition-colors">Compare</Link></li>
+                <li><Link href="/faq" className="text-gray-400 hover:text-white transition-colors">FAQ</Link></li>
                 <li><Link href="/changelog" className="text-gray-400 hover:text-white transition-colors">Changelog</Link></li>
               </ul>
             </div>
@@ -437,7 +447,6 @@ export default function FAQPage() {
               <ul className="space-y-3 text-sm">
                 <li><Link href="/docs" className="text-gray-400 hover:text-white transition-colors">Documentation</Link></li>
                 <li><Link href="/docs/api" className="text-gray-400 hover:text-white transition-colors">API Reference</Link></li>
-                <li><a href="https://github.com/verityflowproject" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-1">GitHub <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></a></li>
                 <li><Link href="/status" className="text-gray-400 hover:text-white transition-colors">Status</Link></li>
               </ul>
             </div>
@@ -467,23 +476,6 @@ export default function FAQPage() {
           </div>
         </div>
       </footer>
-
-      <style jsx global>{`
-        @keyframes slide-down {
-          from {
-            opacity: 0;
-            max-height: 0;
-          }
-          to {
-            opacity: 1;
-            max-height: 500px;
-          }
-        }
-        
-        .animate-slide-down {
-          animation: slide-down 0.3s ease-out;
-        }
-      `}</style>
     </div>
   )
 }
