@@ -187,10 +187,30 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
+        {/* Bottom gradient fade for smooth transition */}
+        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-b from-transparent to-[#0a0a0f] pointer-events-none" />
       </section>
+
+      {/* Transition Spacer with subtle glow */}
+      <div className="relative py-20 overflow-hidden">
+        <div className="absolute inset-0">
+          <div 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[400px] rounded-full blur-[150px] opacity-5"
+            style={{ 
+              background: `linear-gradient(90deg, ${MODEL_COLORS.perplexity} 0%, ${MODEL_COLORS.claude} 50%, ${MODEL_COLORS.gpt} 100%)`
+            }}
+          />
+        </div>
+        {/* Subtle separator line */}
+        <div className="container mx-auto px-6">
+          <div className="w-32 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent mx-auto" />
+        </div>
+      </div>
 
       {/* How It Works Section */}
       <section className="py-32 relative">
+        {/* Top gradient fade */}
+        <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-[#0a0a0f] to-transparent pointer-events-none" />
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <div className="text-sm text-indigo-400 uppercase tracking-wider mb-4">How It Works</div>
@@ -285,7 +305,24 @@ export default function LandingPage() {
             />
           </div>
         </div>
+        
+        {/* Bottom gradient fade for smooth transition */}
+        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-b from-transparent to-[#0a0a0f] pointer-events-none" />
       </section>
+
+      {/* Transition Spacer */}
+      <div className="relative py-16 overflow-hidden">
+        <div className="absolute inset-0">
+          <div 
+            className="absolute top-1/2 left-1/3 w-[600px] h-[300px] rounded-full blur-[120px] opacity-5"
+            style={{ background: `radial-gradient(circle, ${MODEL_COLORS.codestral} 0%, transparent 70%)` }}
+          />
+          <div 
+            className="absolute top-1/2 right-1/3 w-[600px] h-[300px] rounded-full blur-[120px] opacity-5"
+            style={{ background: `radial-gradient(circle, ${MODEL_COLORS.gemini} 0%, transparent 70%)` }}
+          />
+        </div>
+      </div>
 
       {/* Role Assignment Section */}
       <section className="py-32 relative bg-gradient-to-b from-transparent via-indigo-950/10 to-transparent">
