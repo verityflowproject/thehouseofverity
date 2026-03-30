@@ -203,14 +203,14 @@ export default function LandingPage() {
 
             {/* CTAs */}
             <div className="flex items-center justify-center gap-4 mb-16">
-              <button className="px-9 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 rounded-lg font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-indigo-500/25 flex items-center gap-2">
+              <Link href="/register" className="px-9 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 rounded-lg font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-indigo-500/25 flex items-center gap-2">
                 Start building free
                 <ArrowRight className="w-5 h-5" />
-              </button>
-              <button className="px-9 py-4 text-gray-300 hover:text-white transition-colors flex items-center gap-2 group border border-gray-700 hover:border-gray-600 rounded-lg">
+              </Link>
+              <a href="#how-it-works" className="px-9 py-4 text-gray-300 hover:text-white transition-colors flex items-center gap-2 group border border-gray-700 hover:border-gray-600 rounded-lg">
                 See how it works
                 <ArrowDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
-              </button>
+              </a>
             </div>
 
             {/* Feature badges */}
@@ -242,26 +242,8 @@ export default function LandingPage() {
         <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-b from-transparent to-[#0a0a0f] pointer-events-none" />
       </section>
 
-      {/* Transition Spacer with subtle glow */}
-      <div className="relative py-20 overflow-hidden">
-        <div className="absolute inset-0">
-          <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[400px] rounded-full blur-[150px] opacity-5"
-            style={{ 
-              background: `linear-gradient(90deg, ${MODEL_COLORS.perplexity} 0%, ${MODEL_COLORS.claude} 50%, ${MODEL_COLORS.gpt} 100%)`
-            }}
-          />
-        </div>
-        {/* Subtle separator line */}
-        <div className="container mx-auto px-6">
-          <div className="w-32 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent mx-auto" />
-        </div>
-      </div>
-
       {/* How It Works Section */}
-      <section className="py-32 relative">
-        {/* Top gradient fade */}
-        <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-[#0a0a0f] to-transparent pointer-events-none" />
+      <section id="how-it-works" className="py-32 relative">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <div className="text-sm text-indigo-400 uppercase tracking-wider mb-4">How It Works</div>
