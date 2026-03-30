@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Check, ArrowRight, ArrowDown, Menu, X } from 'lucide-react'
 
@@ -256,86 +256,118 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Collaboration Example */}
-          <div className="max-w-7xl mx-auto mb-20">
-            <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 rounded-2xl border border-gray-800 overflow-hidden backdrop-blur-sm">
-              {/* Header */}
-              <div className="bg-gray-900/50 px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-mono text-gray-400">COUNCIL SESSION</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-xs text-emerald-400 uppercase tracking-wider">Live</span>
-                  </div>
+          {/* Animated Council Session */}
+          <LiveCouncilSession />
+
+          {/* Enhanced Process Cards */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto mt-20">
+            {/* Card 1: Zero Hallucinations */}
+            <div className="group bg-gradient-to-br from-emerald-500/10 to-emerald-900/5 border border-emerald-500/20 rounded-xl p-6 hover:border-emerald-500/40 transition-all duration-300 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-2xl">🛡️</span>
                 </div>
-              </div>
-
-              <div className="p-8">
-                <h3 className="text-2xl font-bold mb-6">This is what collaboration actually looks like.</h3>
-                
-                <div className="space-y-6 font-mono text-sm">
-                  {/* User Input */}
-                  <div className="text-gray-400">
-                    <span className="text-gray-600">$</span> Build a full-stack SaaS with auth, billing, and user dashboard
+                <h3 className="text-lg font-semibold mb-2 text-white">Zero Hallucinations</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  Perplexity verifies every package, API, and method against live documentation before a single line is written.
+                </p>
+                <div className="space-y-2 font-mono text-xs">
+                  <div className="flex items-center justify-between p-2 bg-gray-900/50 rounded">
+                    <span className="text-gray-500">Unverified</span>
+                    <span className="text-red-400 font-semibold">BLOCKED</span>
                   </div>
-
-                  {/* Perplexity */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: MODEL_COLORS.perplexity, boxShadow: `0 0 8px ${MODEL_COLORS.perplexity}` }} />
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Perplexity <span className="text-gray-600">Researcher</span></div>
-                      <div className="text-gray-300">next-auth@0.5.0-beta.30 confirmed stable. MongoDBAdapter compatible. No breaking changes. Proceeding.</div>
-                    </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-900/50 rounded">
+                    <span className="text-gray-500">Verified</span>
+                    <span className="text-emerald-400 font-semibold">✓ PROCEED</span>
                   </div>
-
-                  {/* Claude */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: MODEL_COLORS.claude, boxShadow: `0 0 8px ${MODEL_COLORS.claude}` }} />
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Claude <span className="text-gray-600">Architect</span></div>
-                      <div className="text-gray-300">
-                        Architecture decision: users collection needs <code className="text-blue-400">`plan`</code> [enum: free/pro/teams] and <code className="text-blue-400">`usageCount`</code> [int]. Persisting to ProjectState.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-gray-600 text-center py-2">...</div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Process Cards */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            <ProcessCard
-              badge="REVIEW OUTCOMES"
-              title="Every output has a verdict."
-              description="Output passes review unchanged. Ships axis."
-              icon="✓"
-              iconColor="text-emerald-400"
-            />
-            <ProcessCard
-              badge="SHARED MEMORY"
-              title="Context that outlives every session."
-              description="ProjectState.json • updated 4m ago"
-              code={['architecture: "REST"', 'MongoDB', 'NextAuth.js']}
-            />
-            <ProcessCard
-              badge="THE PIPELINE"
-              title="Five roles. One output."
-              models={[
-                { name: 'Perplexity', desc: 'Verifies every dependency before anything is written', color: MODEL_COLORS.perplexity },
-                { name: 'Claude', desc: 'Designs architecture. Arbitrates conflicts.', color: MODEL_COLORS.claude },
-              ]}
-            />
-            <ProcessCard
-              badge="HALLUCINATION FIREWALL"
-              title="Perplexity checks before anyone writes a line."
-              status={[
-                { label: 'Unverified request', value: 'BLOCKED', color: 'text-red-400' },
-                { label: 'After check', value: 'VERIFIED', color: 'text-emerald-400' }
-              ]}
-            />
+            {/* Card 2: Persistent Memory */}
+            <div className="group bg-gradient-to-br from-blue-500/10 to-blue-900/5 border border-blue-500/20 rounded-xl p-6 hover:border-blue-500/40 transition-all duration-300 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-2xl">🧠</span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-white">Persistent Memory</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  Every decision, pattern, and architectural choice is stored in ProjectState—persists forever.
+                </p>
+                <div className="mt-4 p-3 bg-gray-900/50 rounded-lg font-mono text-xs">
+                  <div className="text-blue-400 mb-2">ProjectState.json</div>
+                  <div className="space-y-1 text-gray-500">
+                    <div>→ architecture: <span className="text-gray-300">"REST API"</span></div>
+                    <div>→ database: <span className="text-gray-300">"MongoDB"</span></div>
+                    <div>→ auth: <span className="text-gray-300">"NextAuth v5"</span></div>
+                  </div>
+                  <div className="text-gray-600 text-xs mt-2">Updated 2m ago</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Cross-Model Review */}
+            <div className="group bg-gradient-to-br from-purple-500/10 to-purple-900/5 border border-purple-500/20 rounded-xl p-6 hover:border-purple-500/40 transition-all duration-300 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-2xl">🔍</span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-white">Cross-Model Review</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  Different model reviews every output. No model grades its own homework.
+                </p>
+                <div className="space-y-3 mt-4">
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 rounded-full mt-1.5 bg-orange-400" />
+                    <div className="text-xs">
+                      <div className="text-white font-semibold">Codestral writes</div>
+                      <div className="text-gray-500">Implementation</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <div className="text-gray-600">↓</div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 rounded-full mt-1.5 bg-blue-400" />
+                    <div className="text-xs">
+                      <div className="text-white font-semibold">GPT reviews</div>
+                      <div className="text-gray-500">Catches errors</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Full Audit Trail */}
+            <div className="group bg-gradient-to-br from-indigo-500/10 to-indigo-900/5 border border-indigo-500/20 rounded-xl p-6 hover:border-indigo-500/40 transition-all duration-300 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-2xl">📋</span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-white">Full Audit Trail</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  Every session produces a complete review log. See which model wrote what, what was flagged, and why.
+                </p>
+                <div className="mt-4 space-y-2 font-mono text-xs">
+                  <div className="p-2 bg-gray-900/50 rounded flex items-center gap-2">
+                    <span className="text-emerald-400">✓</span>
+                    <span className="text-gray-400">Architecture approved</span>
+                  </div>
+                  <div className="p-2 bg-gray-900/50 rounded flex items-center gap-2">
+                    <span className="text-yellow-400">⚠</span>
+                    <span className="text-gray-400">Edge case flagged</span>
+                  </div>
+                  <div className="p-2 bg-gray-900/50 rounded flex items-center gap-2">
+                    <span className="text-blue-400">→</span>
+                    <span className="text-gray-400">Arbitration resolved</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -1011,6 +1043,181 @@ export default function LandingPage() {
           animation: float 15s ease-in-out infinite;
         }
       `}</style>
+    </div>
+  )
+}
+
+function LiveCouncilSession() {
+  const [step, setStep] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(true)
+
+  const steps = [
+    {
+      id: 0,
+      type: 'input',
+      content: '$ Build a full-stack SaaS with Stripe billing, user auth, and a dashboard'
+    },
+    {
+      id: 1,
+      model: 'Perplexity',
+      role: 'Researcher',
+      color: MODEL_COLORS.perplexity,
+      content: 'Verifying dependencies... stripe@14.21.0 confirmed. next-auth@5.0.0 stable. MongoDBAdapter compatible. ✓ All packages verified. Proceeding.',
+      duration: 2500
+    },
+    {
+      id: 2,
+      model: 'Claude',
+      role: 'Architect',
+      color: MODEL_COLORS.claude,
+      content: 'Architecture decision: users collection needs `plan` [enum: free/pro] and `stripeCustomerId`. Designing API routes: /api/billing/webhook, /api/auth/[...nextauth]. Persisting to ProjectState...',
+      duration: 3000
+    },
+    {
+      id: 3,
+      model: 'Codestral',
+      role: 'Implementer',
+      color: MODEL_COLORS.codestral,
+      content: 'Implementing /api/billing/webhook.js with Stripe signature verification. Creating users schema with plan field. Building dashboard layout with protected routes...',
+      duration: 3500
+    },
+    {
+      id: 4,
+      model: 'GPT',
+      role: 'Reviewer',
+      color: MODEL_COLORS.gpt,
+      content: 'Reviewing Codestral output... ⚠ Edge case detected: webhook signature must use raw body. Flagging for correction. Otherwise approved.',
+      duration: 2800
+    },
+    {
+      id: 5,
+      model: 'Codestral',
+      role: 'Implementer',
+      color: MODEL_COLORS.codestral,
+      content: 'Applied correction: Added express.raw() middleware for /api/billing/webhook. Signature verification now correct. Re-submitting...',
+      duration: 2200
+    },
+    {
+      id: 6,
+      model: 'GPT',
+      role: 'Reviewer',
+      color: MODEL_COLORS.gpt,
+      content: '✓ Review passed. Output approved. Shipping...',
+      duration: 1800
+    },
+    {
+      id: 7,
+      type: 'output',
+      content: '✅ Full-stack SaaS delivered: Auth configured, Stripe webhook secure, dashboard protected. Review log attached. ProjectState updated.',
+      duration: 3000
+    }
+  ]
+
+  useEffect(() => {
+    if (!isPlaying) return
+
+    const timer = setTimeout(() => {
+      setStep((prev) => {
+        if (prev >= steps.length - 1) {
+          // Loop back to beginning after a pause
+          setTimeout(() => setStep(0), 2000)
+          return prev
+        }
+        return prev + 1
+      })
+    }, steps[step]?.duration || 2000)
+
+    return () => clearTimeout(timer)
+  }, [step, isPlaying, steps])
+
+  return (
+    <div className="max-w-7xl mx-auto mb-20">
+      <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 rounded-2xl border border-gray-800 overflow-hidden backdrop-blur-sm">
+        {/* Header */}
+        <div className="bg-gray-900/50 px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-mono text-gray-400">COUNCIL SESSION</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs text-emerald-400 uppercase tracking-wider">Live</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-3 py-1 rounded border border-gray-700 hover:border-gray-600"
+          >
+            {isPlaying ? 'Pause' : 'Play'}
+          </button>
+        </div>
+
+        <div className="p-8">
+          <h3 className="text-2xl font-bold mb-6">
+            This is what collaboration actually looks like.
+          </h3>
+          
+          <div className="space-y-6 font-mono text-sm min-h-[400px]">
+            {/* User Input - Always visible */}
+            <div className={`text-gray-400 transition-opacity duration-300 ${step >= 0 ? 'opacity-100' : 'opacity-0'}`}>
+              <span className="text-gray-600">$</span> {steps[0].content}
+            </div>
+
+            {/* Render all steps up to current */}
+            {steps.slice(1, step + 1).map((s, index) => {
+              if (s.type === 'output') {
+                return (
+                  <div 
+                    key={s.id} 
+                    className="mt-8 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg animate-fade-in"
+                  >
+                    <div className="text-emerald-400 font-semibold mb-2">OUTPUT</div>
+                    <div className="text-gray-300">{s.content}</div>
+                  </div>
+                )
+              }
+
+              return (
+                <div 
+                  key={s.id} 
+                  className={`flex items-start gap-3 animate-fade-in ${
+                    index === step - 1 ? 'opacity-100' : 'opacity-70'
+                  }`}
+                >
+                  <div 
+                    className="w-2 h-2 rounded-full mt-2 flex-shrink-0" 
+                    style={{ 
+                      backgroundColor: s.color, 
+                      boxShadow: `0 0 8px ${s.color}`,
+                      animation: index === step - 1 ? 'pulse 2s infinite' : 'none'
+                    }} 
+                  />
+                  <div className="flex-1">
+                    <div className="text-xs text-gray-500 mb-1">
+                      {s.model} <span className="text-gray-600">{s.role}</span>
+                    </div>
+                    <div className="text-gray-300 leading-relaxed">
+                      {s.content}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Thinking indicator for current step */}
+            {step < steps.length - 1 && step > 0 && (
+              <div className="flex items-center gap-2 text-gray-600 animate-pulse">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-xs">
+                  {steps[step + 1]?.model || 'Processing'}...
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
