@@ -1,4 +1,5 @@
 import './globals.css'
+import { Providers } from './providers'
 
 export const metadata = {
   title: 'VerityFlow — Your AI Engineering Firm',
@@ -36,7 +37,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
