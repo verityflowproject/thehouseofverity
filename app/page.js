@@ -1,24 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Check, ArrowRight } from 'lucide-react'
+import { Check, ArrowRight, ArrowDown } from 'lucide-react'
 
-// Model colors matching the reference
+// Model colors
 const MODEL_COLORS = {
-  claude: '#FF6B6B',      // Red
-  gpt: '#4ECDC4',         // Teal
-  codestral: '#95E1D3',   // Green/Teal
-  gemini: '#F38181',      // Pink
-  perplexity: '#AA96DA',  // Purple
+  claude: '#FF6B6B',
+  gpt: '#4ECDC4',
+  codestral: '#F9C74F',
+  gemini: '#F38181',
+  perplexity: '#AA96DA',
 }
 
 export default function LandingPage() {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       {/* Navigation */}
@@ -53,107 +47,127 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-        {/* Animated spotty gradient background - model colors */}
+        {/* Multi-layered gradient background with varying intensities */}
         <div className="absolute inset-0 overflow-hidden">
-          {/* Multiple gradient orbs with model colors */}
+          {/* Large primary glow - left/center blue */}
           <div 
-            className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-20 animate-pulse-slow"
+            className="absolute top-1/3 left-1/4 w-[800px] h-[800px] rounded-full blur-[140px] opacity-30 animate-pulse-slow"
             style={{ 
-              background: `radial-gradient(circle, ${MODEL_COLORS.claude} 0%, transparent 70%)`,
-              animationDuration: '8s'
-            }}
-          />
-          <div 
-            className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px] opacity-25 animate-pulse-slow"
-            style={{ 
-              background: `radial-gradient(circle, ${MODEL_COLORS.gpt} 0%, transparent 70%)`,
-              animationDelay: '2s',
-              animationDuration: '7s'
-            }}
-          />
-          <div 
-            className="absolute bottom-1/3 left-1/3 w-[450px] h-[450px] rounded-full blur-[110px] opacity-20 animate-pulse-slow"
-            style={{ 
-              background: `radial-gradient(circle, ${MODEL_COLORS.perplexity} 0%, transparent 70%)`,
-              animationDelay: '4s',
-              animationDuration: '9s'
-            }}
-          />
-          <div 
-            className="absolute top-1/2 right-1/3 w-[350px] h-[350px] rounded-full blur-[90px] opacity-15 animate-pulse-slow"
-            style={{ 
-              background: `radial-gradient(circle, ${MODEL_COLORS.gemini} 0%, transparent 70%)`,
-              animationDelay: '1s',
+              background: `radial-gradient(circle, #4A90E2 0%, #2E5C8A 30%, transparent 70%)`,
               animationDuration: '10s'
             }}
           />
-          <div 
-            className="absolute bottom-1/4 right-1/4 w-[380px] h-[380px] rounded-full blur-[100px] opacity-20 animate-pulse-slow"
-            style={{ 
-              background: `radial-gradient(circle, ${MODEL_COLORS.codestral} 0%, transparent 70%)`,
-              animationDelay: '3s',
-              animationDuration: '8s'
-            }}
-          />
           
-          {/* Additional smaller spots for more texture */}
+          {/* Medium cyan/teal glow - right side */}
           <div 
-            className="absolute top-1/4 right-1/2 w-[250px] h-[250px] rounded-full blur-[80px] opacity-10 animate-float"
+            className="absolute top-1/4 right-1/4 w-[600px] h-[600px] rounded-full blur-[120px] opacity-25 animate-pulse-slow"
             style={{ 
-              background: `radial-gradient(circle, ${MODEL_COLORS.claude} 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${MODEL_COLORS.gpt} 0%, #2A7A7A 40%, transparent 70%)`,
+              animationDelay: '2s',
               animationDuration: '12s'
             }}
           />
+          
+          {/* Purple glow - bottom center */}
           <div 
-            className="absolute bottom-1/3 left-1/2 w-[280px] h-[280px] rounded-full blur-[85px] opacity-15 animate-float"
+            className="absolute bottom-1/4 left-1/3 w-[700px] h-[700px] rounded-full blur-[130px] opacity-20 animate-pulse-slow"
             style={{ 
-              background: `radial-gradient(circle, ${MODEL_COLORS.perplexity} 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${MODEL_COLORS.perplexity} 0%, #6B4FA0 35%, transparent 65%)`,
               animationDelay: '5s',
               animationDuration: '11s'
+            }}
+          />
+          
+          {/* Pink/red glow - top right */}
+          <div 
+            className="absolute top-1/5 right-1/3 w-[500px] h-[500px] rounded-full blur-[100px] opacity-15 animate-pulse-slow"
+            style={{ 
+              background: `radial-gradient(circle, ${MODEL_COLORS.gemini} 0%, #D15F5F 30%, transparent 60%)`,
+              animationDelay: '1s',
+              animationDuration: '9s'
+            }}
+          />
+          
+          {/* Small accent spots */}
+          <div 
+            className="absolute top-1/2 left-1/2 w-[400px] h-[400px] rounded-full blur-[90px] opacity-10 animate-float"
+            style={{ 
+              background: `radial-gradient(circle, #5B9EE8 0%, transparent 70%)`,
+              animationDuration: '14s'
+            }}
+          />
+          
+          <div 
+            className="absolute bottom-1/3 right-1/2 w-[350px] h-[350px] rounded-full blur-[85px] opacity-12 animate-float"
+            style={{ 
+              background: `radial-gradient(circle, ${MODEL_COLORS.codestral} 0%, transparent 70%)`,
+              animationDelay: '3s',
+              animationDuration: '13s'
+            }}
+          />
+          
+          <div 
+            className="absolute top-2/3 left-2/3 w-[300px] h-[300px] rounded-full blur-[75px] opacity-08 animate-float"
+            style={{ 
+              background: `radial-gradient(circle, #8B7FD8 0%, transparent 65%)`,
+              animationDelay: '4s',
+              animationDuration: '15s'
             }}
           />
         </div>
 
         <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-8">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-sm text-emerald-300 font-medium">Five models. One codebase.</span>
+          <div className="max-w-5xl mx-auto text-center">
+            {/* Navigation links above hero */}
+            <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-gray-900/50 border border-gray-800 mb-12 text-sm text-gray-400">
+              <a href="#lab" className="hover:text-white transition-colors">Lab</a>
+              <span className="text-gray-700">|</span>
+              <a href="#field-data" className="hover:text-white transition-colors">Field Data</a>
+              <span className="text-gray-700">|</span>
+              <a href="#council" className="hover:text-white transition-colors">AI Council</a>
+              <span className="text-gray-700">|</span>
+              <a href="#hallucinations" className="hover:text-white transition-colors">Zero Hallucinations</a>
             </div>
 
-            {/* Headline with gradient */}
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
-              Your AI
+            {/* Headline */}
+            <h1 className="text-7xl md:text-8xl lg:text-9xl font-bold mb-8 leading-[0.95]">
+              <span className="text-white">Your AI</span>
               <br />
               <span 
-                className="inline-block bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-300 text-transparent bg-clip-text"
+                className="inline-block bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 text-transparent bg-clip-text"
+                style={{
+                  textShadow: '0 0 80px rgba(99, 102, 241, 0.3)'
+                }}
               >
                 Engineering
-              </span>
-              <br />
+              </span>{' '}
               <span className="text-white">Firm.</span>
             </h1>
 
             {/* Subtitle */}
-            <p className="text-xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
-              VerityFlow coordinates five specialized AI models to build production code. 
-              Every decision debated. Every line reviewed. Zero hallucinations.
+            <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-4xl mx-auto leading-relaxed">
+              VerityFlow deploys <span className="text-white font-medium">five specialized AI models</span> that collaborate as a structured team — reviewing each other's work, resolving conflicts, and shipping code you can{' '}
+              <span className="text-white font-semibold">actually trust</span>.
             </p>
 
             {/* CTAs */}
             <div className="flex items-center justify-center gap-4 mb-16">
-              <button className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-indigo-500/20">
+              <button className="px-9 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 rounded-lg font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-indigo-500/25 flex items-center gap-2">
                 Start building free
+                <ArrowRight className="w-5 h-5" />
               </button>
-              <button className="px-8 py-4 text-gray-300 hover:text-white transition-colors flex items-center gap-2 group">
+              <button className="px-9 py-4 text-gray-300 hover:text-white transition-colors flex items-center gap-2 group border border-gray-700 hover:border-gray-600 rounded-lg">
                 See how it works
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
               </button>
             </div>
 
             {/* Feature badges */}
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-sm text-gray-400">
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-400">⚡</span>
+                <span>Bring your own keys - no API markup</span>
+              </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400" />
                 <span>Zero hallucinations</span>
@@ -166,272 +180,196 @@ export default function LandingPage() {
                 <Check className="w-4 h-4 text-emerald-400" />
                 <span>Every line reviewed</span>
               </div>
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>Bring your own keys</span>
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 rounded-full border-2 border-gray-600 flex items-start justify-center p-2">
-            <div className="w-1 h-2 bg-gray-500 rounded-full animate-scroll" />
           </div>
         </div>
       </section>
 
-      {/* Philosophy Section */}
+      {/* How It Works Section */}
       <section className="py-32 relative">
         <div className="container mx-auto px-6">
-          <div className="max-w-3xl mx-auto text-center">
-            <p className="text-2xl md:text-3xl text-gray-300 leading-relaxed font-light">
-              "Trust in AI doesn't come from a single model being <span className="text-white font-medium italic">smarter</span>. 
-              It comes from having a <span className="text-indigo-400 font-medium">structured team</span> where 
-              every decision is challenged and every output is verified."
+          <div className="text-center mb-16">
+            <div className="text-sm text-indigo-400 uppercase tracking-wider mb-4">How It Works</div>
+            <h2 className="text-5xl md:text-6xl font-bold mb-6">
+              A structured engineering process.
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              Models don't take turns — they collaborate, verify, review, and only ship output<br />
+              that passes every gate.
             </p>
           </div>
-        </div>
-      </section>
 
-      {/* Five Models Section */}
-      <section className="py-20 relative">
-        <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-            <div className="space-y-6">
-              <h2 className="text-4xl font-bold">
-                Five models.
-                <br />
-                <span className="text-indigo-400">Zero echo chambers.</span>
-              </h2>
-              <p className="text-gray-400 text-lg leading-relaxed">
-                Every specialized AI plays a distinct role. Architecture. Research. Implementation. 
-                Review. Context. No single model owns the truth.
-              </p>
-            </div>
-            
-            <div className="space-y-6">
-              <h2 className="text-4xl font-bold">
-                Your keys. Your costs.
-                <br />
-                <span className="text-indigo-400">No markup.</span>
-              </h2>
-              <p className="text-gray-400 text-lg leading-relaxed">
-                Bring your own API keys from Anthropic, OpenAI, Google, and Mistral. 
-                Pay providers directly. We never touch your costs.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works - Council Session */}
-      <section className="py-32 relative">
-        <div className="container mx-auto px-6">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold mb-6">
-                How the <span className="text-indigo-400">Council</span> Works
-              </h2>
-              <p className="text-xl text-gray-400">
-                A structured engineering process. Not a chatbot.
-              </p>
-            </div>
-
-            {/* Mock Terminal/Council Session */}
-            <div className="bg-gradient-to-br from-gray-900 to-gray-950 rounded-2xl border border-gray-800 overflow-hidden shadow-2xl">
-              {/* Terminal Header */}
+          {/* Collaboration Example */}
+          <div className="max-w-7xl mx-auto mb-20">
+            <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 rounded-2xl border border-gray-800 overflow-hidden backdrop-blur-sm">
+              {/* Header */}
               <div className="bg-gray-900/50 px-6 py-4 border-b border-gray-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                  <span className="text-sm font-mono text-gray-400">COUNCIL SESSION</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-xs text-emerald-400 uppercase tracking-wider">Live</span>
                   </div>
-                  <span className="text-sm text-gray-400 font-mono">council-session-0001</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs text-emerald-400 uppercase tracking-wider">Live</span>
                 </div>
               </div>
 
-              {/* Terminal Content */}
-              <div className="p-8 font-mono text-sm space-y-6">
-                {/* User Prompt */}
-                <div className="space-y-2">
-                  <div className="text-gray-500">$ you</div>
-                  <div className="text-gray-200 pl-4">
-                    Build a SaaS authentication system with NextAuth, Stripe billing, and MongoDB...
+              <div className="p-8">
+                <h3 className="text-2xl font-bold mb-6">This is what collaboration actually looks like.</h3>
+                
+                <div className="space-y-6 font-mono text-sm">
+                  {/* User Input */}
+                  <div className="text-gray-400">
+                    <span className="text-gray-600">$</span> Build a full-stack SaaS with auth, billing, and user dashboard
                   </div>
-                </div>
 
-                {/* Council Responses */}
-                <div className="space-y-4 pt-4">
-                  <CouncilMessage 
-                    model="perplexity" 
-                    color={MODEL_COLORS.perplexity}
-                    text="Verified: next-auth@5.0-beta, stripe@16.0, mongodb@6.3 ✓"
-                  />
-                  <CouncilMessage 
-                    model="claude" 
-                    color={MODEL_COLORS.claude}
-                    text="Architectural decision: Use server actions for mutations. Separate auth config."
-                  />
-                  <CouncilMessage 
-                    model="codestral" 
-                    color={MODEL_COLORS.codestral}
-                    text="Generated auth.ts, stripe-client.ts, user-model.ts. 487 lines."
-                  />
-                  <CouncilMessage 
-                    model="gpt" 
-                    color={MODEL_COLORS.gpt}
-                    text="Review: Code follows conventions. Minor: Add error boundary to checkout flow."
-                  />
-                  <CouncilMessage 
-                    model="gemini" 
-                    color={MODEL_COLORS.gemini}
-                    text="Context check: Naming consistent. userSchema matches User type across 8 files."
-                  />
-                </div>
+                  {/* Perplexity */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: MODEL_COLORS.perplexity, boxShadow: `0 0 8px ${MODEL_COLORS.perplexity}` }} />
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Perplexity <span className="text-gray-600">Researcher</span></div>
+                      <div className="text-gray-300">next-auth@0.5.0-beta.30 confirmed stable. MongoDBAdapter compatible. No breaking changes. Proceeding.</div>
+                    </div>
+                  </div>
 
-                {/* Model Indicators */}
-                <div className="flex items-center gap-3 pt-6 border-t border-gray-800">
-                  <ModelDot color={MODEL_COLORS.claude} label="Claude" />
-                  <ModelDot color={MODEL_COLORS.gpt} label="GPT" />
-                  <ModelDot color={MODEL_COLORS.codestral} label="Codestral" />
-                  <ModelDot color={MODEL_COLORS.gemini} label="Gemini" />
-                  <ModelDot color={MODEL_COLORS.perplexity} label="Perplexity" />
+                  {/* Claude */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: MODEL_COLORS.claude, boxShadow: `0 0 8px ${MODEL_COLORS.claude}` }} />
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Claude <span className="text-gray-600">Architect</span></div>
+                      <div className="text-gray-300">
+                        Architecture decision: users collection needs <code className="text-blue-400">`plan`</code> [enum: free/pro/teams] and <code className="text-blue-400">`usageCount`</code> [int]. Persisting to ProjectState.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-gray-600 text-center py-2">...</div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Process Steps */}
-      <section className="py-32 relative">
-        <div className="container mx-auto px-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="space-y-16">
-              <ProcessStep 
-                number="1"
-                title="You describe your project"
-                description="Natural language prompts. No configuration files."
-                badge="Start in seconds"
-                color={MODEL_COLORS.gpt}
-              />
-              <ProcessStep 
-                number="2"
-                title="Perplexity verifies dependencies"
-                description="Checks every package exists, current, and secure."
-                badge="Hallucination firewall"
-                color={MODEL_COLORS.perplexity}
-              />
-              <ProcessStep 
-                number="3"
-                title="Claude designs architecture"
-                description="Makes opinionated decisions on structure and patterns."
-                badge="No decision paralysis"
-                color={MODEL_COLORS.claude}
-              />
-              <ProcessStep 
-                number="4"
-                title="Codestral writes implementation"
-                description="Production-ready code following your conventions."
-                badge="Complete, not partial"
-                color={MODEL_COLORS.codestral}
-              />
-              <ProcessStep 
-                number="5"
-                title="GPT reviews for quality"
-                description="Catches bugs, security issues, and convention drift."
-                badge="Zero blind spots"
-                color={MODEL_COLORS.gpt}
-              />
-              <ProcessStep 
-                number="6"
-                title="Gemini enforces consistency"
-                description="Full-codebase context ensures nothing breaks."
-                badge="Prevents regression"
-                color={MODEL_COLORS.gemini}
-              />
-              <ProcessStep 
-                number="7"
-                title="Conflicts go to arbitration"
-                description="Claude makes final call when models disagree."
-                badge="Always decisive"
-                color={MODEL_COLORS.claude}
-              />
-            </div>
+          {/* Process Cards */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+            <ProcessCard
+              badge="REVIEW OUTCOMES"
+              title="Every output has a verdict."
+              description="Output passes review unchanged. Ships axis."
+              icon="✓"
+              iconColor="text-emerald-400"
+            />
+            <ProcessCard
+              badge="SHARED MEMORY"
+              title="Context that outlives every session."
+              description="ProjectState.json • updated 4m ago"
+              code={['architecture: "REST"', 'MongoDB', 'NextAuth.js']}
+            />
+            <ProcessCard
+              badge="THE PIPELINE"
+              title="Five roles. One output."
+              models={[
+                { name: 'Perplexity', desc: 'Verifies every dependency before anything is written', color: MODEL_COLORS.perplexity },
+                { name: 'Claude', desc: 'Designs architecture. Arbitrates conflicts.', color: MODEL_COLORS.claude },
+              ]}
+            />
+            <ProcessCard
+              badge="HALLUCINATION FIREWALL"
+              title="Perplexity checks before anyone writes a line."
+              status={[
+                { label: 'Unverified request', value: 'BLOCKED', color: 'text-red-400' },
+                { label: 'After check', value: 'VERIFIED', color: 'text-emerald-400' }
+              ]}
+            />
           </div>
         </div>
       </section>
 
-      {/* Meet the Council */}
-      <section className="py-32 relative">
+      {/* Role Assignment Section */}
+      <section className="py-32 relative bg-gradient-to-b from-transparent via-indigo-950/10 to-transparent">
         <div className="container mx-auto px-6">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-20">
-              <h2 className="text-5xl font-bold mb-6">
-                Meet the <span className="text-indigo-400">Council</span>
+              <div className="text-sm text-indigo-400 uppercase tracking-wider mb-4">Role Assignment</div>
+              <h2 className="text-5xl md:text-6xl font-bold mb-6">
+                The right model.
+                <br />
+                <span className="text-indigo-400">For the right reason.</span>
               </h2>
-              <p className="text-xl text-gray-400">
-                Five specialized models, each with a distinct role. No single point of failure.
+              <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+                Every role in your AI Council was earned. These aren't arbitrary assignments —
+                each model holds its position because it has a documented, measurable
+                advantage over every other model at that specific job.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              <ModelCard 
-                name="Claude"
-                version="Opus 4.6"
-                role="Architect"
-                description="Makes architectural decisions with conviction."
+            <div className="space-y-12">
+              {/* Claude */}
+              <RoleCard
+                indicator="left"
                 color={MODEL_COLORS.claude}
-                tags={["Architecture", "Arbitration"]}
+                name="Claude"
+                version="v3 opus 4.6"
+                role="Architect"
+                tagline="Architecture needs a reasoner, not just a coder."
+                benchmark="Highest benchmark: Long-horizon reasoning"
+                description="Claude Opus consistently outperforms every other model on complex multi-step reasoning and decisions with cascading consequences. When an architecture choice made today shapes 40 files a week from now, you need a model that thinks in systems — not just syntax. Claude is also the only model in the council given arbitration authority, because resolving conflict requires explaining why one position is more defensible than another. That's a reasoning task, not a generation task."
               />
-              <ModelCard 
-                name="GPT"
-                version="5.4"
-                role="Implementation"
-                description="Reviews code for correctness and maintainability."
-                color={MODEL_COLORS.gpt}
-                tags={["Review", "Implementation"]}
-              />
-              <ModelCard 
-                name="Codestral"
-                version="Latest"
-                role="Code Gen"
-                description="Generates deterministic, production-ready code."
-                color={MODEL_COLORS.codestral}
-                tags={["Code Gen", "Low Temp"]}
-              />
-              <ModelCard 
-                name="Gemini"
-                version="3.1 Pro"
-                role="Context"
-                description="Enforces naming conventions across the entire codebase."
-                color={MODEL_COLORS.gemini}
-                tags={["Context", "Consistency"]}
-              />
-              <ModelCard 
-                name="Perplexity"
-                version="Sonar-Pro"
-                role="Research"
-                description="Verifies package versions and catches hallucinations."
+
+              {/* Perplexity */}
+              <RoleCard
+                indicator="left"
                 color={MODEL_COLORS.perplexity}
-                tags={["Research", "Verification"]}
+                name="Perplexity"
+                version="vSonar Pro"
+                role="Researcher"
+                tagline="Real-time truth beats trained-in memory."
+                benchmark="Purpose-built for live web retrieval"
+                description="Every other model in the council works from training data with a knowledge cutoff. Perplexity Sonar Pro queries live documentation in real time. When a package releases a breaking change the morning of your build, Claude doesn't know it happened. Perplexity does. No other model was even considered for this role — it's the only one in the industry purpose-built for live retrieval. Asking a generalist model to verify a package version is asking it to guess. Perplexity asks the internet."
               />
-              
-              {/* CTA Card */}
-              <div className="bg-gradient-to-br from-indigo-600/20 to-purple-600/20 rounded-2xl border border-indigo-500/30 p-8 flex flex-col items-center justify-center text-center">
-                <h3 className="text-2xl font-bold mb-4">
-                  Put the whole council to work
-                </h3>
-                <p className="text-gray-400 mb-6">
-                  Start building with all five models for free.
-                </p>
-                <button className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-colors">
-                  Start free
-                </button>
-              </div>
+
+              {/* Codestral */}
+              <RoleCard
+                indicator="left"
+                color={MODEL_COLORS.codestral}
+                name="Codestral"
+                version="v1.4.10"
+                role="Implementer"
+                tagline="A model trained only on code writes better code."
+                benchmark="80+ Languages, code-native training"
+                description="Mistral's Codestral is trained exclusively on code — not conversations, not essays, not general knowledge. That focused training translates directly to higher token efficiency and lower error rates on raw generation tasks compared to generalist models. When you need 300 lines of TypeScript written correctly on the first pass, you don't want a model that spent half its training data learning to write blog posts. Codestral is faster, lighter, and makes fewer implementation mistakes than any model outside its category."
+              />
+
+              {/* GPT */}
+              <RoleCard
+                indicator="left"
+                color={MODEL_COLORS.gpt}
+                name="GPT"
+                version="v5.4"
+                role="Generalist & Reviewer"
+                tagline="The best reviewer is the one most likely to disagree."
+                benchmark="Highest structured evaluation precision"
+                description="Reviewing your own work is the most common failure mode in software engineering — and in AI. GPT-5.4 wasn't chosen for its code generation quality. It was chosen for its precision in structured evaluation: catching logical errors, security gaps, and edge cases that generation-focused models overlook precisely because they were optimized to produce output, not critique it. GPT-5.4 reviews Codestral's work because it thinks differently. That difference is the only difference that matters."
+              />
+
+              {/* Gemini */}
+              <RoleCard
+                indicator="left"
+                color={MODEL_COLORS.gemini}
+                name="Gemini"
+                version="v3.1 Pro"
+                role="Refactor Specialist"
+                tagline="Only one model can hold your entire codebase in memory."
+                benchmark="2M token context window"
+                description="Gemini 3.1 Pro has a 2 million token context window. No other model in the council is even close. Sweeping 200 files for naming inconsistencies, architectural drift, and cross-module contradictions requires holding all of it in memory simultaneously — not sampling, not summarizing, but genuinely processing the full document. On large codebases, every other model has to make educated guesses about what they haven't seen. Gemini doesn't. That's not a feature. It's a structural advantage."
+              />
+            </div>
+
+            <div className="mt-16 text-center text-sm text-gray-500">
+              <p>Roles are reviewed when benchmarks shift. If a model earns a better position, it gets one.</p>
+              <p className="mt-1">The council architecture is permanent. Which model fills each role is not.</p>
             </div>
           </div>
         </div>
@@ -457,132 +395,99 @@ export default function LandingPage() {
       <style jsx global>{`
         @keyframes pulse-slow {
           0%, 100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 0.25; transform: scale(1.1); }
+          50% { opacity: 0.30; transform: scale(1.05); }
         }
         
         @keyframes float {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(20px, -20px) scale(1.05); }
-          66% { transform: translate(-20px, 20px) scale(0.95); }
-        }
-        
-        @keyframes scroll {
-          0% { transform: translateY(0); opacity: 0; }
-          50% { opacity: 1; }
-          100% { transform: translateY(12px); opacity: 0; }
+          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.08; }
+          33% { transform: translate(30px, -30px) scale(1.1); opacity: 0.12; }
+          66% { transform: translate(-30px, 30px) scale(0.9); opacity: 0.10; }
         }
         
         .animate-pulse-slow {
-          animation: pulse-slow 8s ease-in-out infinite;
+          animation: pulse-slow 10s ease-in-out infinite;
         }
         
         .animate-float {
-          animation: float 12s ease-in-out infinite;
-        }
-        
-        .animate-scroll {
-          animation: scroll 2s ease-in-out infinite;
+          animation: float 15s ease-in-out infinite;
         }
       `}</style>
     </div>
   )
 }
 
-function CouncilMessage({ model, color, text }) {
+function ProcessCard({ badge, title, description, icon, iconColor, code, models, status }) {
   return (
-    <div className="flex items-start gap-3">
-      <div 
-        className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
-        style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}
-      />
-      <div className="flex-1">
-        <div className="text-gray-500 text-xs mb-1">{model}</div>
-        <div className="text-gray-200">{text}</div>
-      </div>
-    </div>
-  )
-}
-
-function ModelDot({ color, label }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div 
-        className="w-2 h-2 rounded-full"
-        style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
-      />
-      <span className="text-xs text-gray-500">{label}</span>
-    </div>
-  )
-}
-
-function ProcessStep({ number, title, description, badge, color }) {
-  return (
-    <div className="flex gap-6">
-      <div className="flex-shrink-0">
-        <div 
-          className="w-14 h-14 rounded-full border-2 flex items-center justify-center text-xl font-bold"
-          style={{ borderColor: color, color }}
-        >
-          {number}
+    <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-colors">
+      <div className="text-xs text-indigo-400 uppercase tracking-wider mb-3">{badge}</div>
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      {description && <p className="text-sm text-gray-400">{description}</p>}
+      {icon && <div className={`text-3xl mt-4 ${iconColor}`}>{icon}</div>}
+      {code && (
+        <div className="mt-4 space-y-1 font-mono text-xs text-gray-400">
+          {code.map((line, i) => <div key={i}>{line}</div>)}
         </div>
-      </div>
-      <div className="flex-1 pt-2">
-        <h3 className="text-2xl font-bold mb-2">{title}</h3>
-        <p className="text-gray-400 text-lg mb-3">{description}</p>
-        <span 
-          className="inline-block px-3 py-1 rounded-full text-xs font-mono"
-          style={{ 
-            backgroundColor: `${color}20`, 
-            color,
-            border: `1px solid ${color}40`
-          }}
-        >
-          {badge}
-        </span>
-      </div>
+      )}
+      {models && (
+        <div className="mt-4 space-y-3">
+          {models.map((model, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: model.color }} />
+              <div className="text-xs">
+                <div className="font-semibold text-white">{model.name}</div>
+                <div className="text-gray-400">{model.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {status && (
+        <div className="mt-4 space-y-2 font-mono text-xs">
+          {status.map((s, i) => (
+            <div key={i}>
+              <span className="text-gray-500">{s.label}</span>{' '}
+              <span className={`font-semibold ${s.color}`}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function ModelCard({ name, version, role, description, color, tags }) {
+function RoleCard({ indicator, color, name, version, role, tagline, benchmark, description }) {
   return (
-    <div className="bg-gray-900/50 rounded-2xl border border-gray-800 p-6 hover:border-gray-700 transition-colors">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
+    <div className="grid md:grid-cols-12 gap-8 items-start">
+      {/* Left: Model Info */}
+      <div className="md:col-span-3">
+        <div className="flex items-center gap-3 mb-3">
+          {indicator === 'left' && (
             <div 
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}
+              className="w-1 h-12 rounded-full"
+              style={{ backgroundColor: color, boxShadow: `0 0 12px ${color}` }}
             />
-            <h3 className="text-xl font-bold">{name}</h3>
+          )}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+              <h3 className="text-xl font-bold">{name}</h3>
+            </div>
+            <div className="text-sm text-gray-500">{version}</div>
           </div>
-          <div className="text-sm text-gray-500">{version}</div>
         </div>
-      </div>
-      
-      <div className="mb-4">
-        <span 
-          className="inline-block px-3 py-1 rounded-full text-xs font-medium"
-          style={{ 
-            backgroundColor: `${color}20`, 
-            color 
-          }}
+        <div 
+          className="inline-block px-3 py-1 rounded-full text-xs font-medium mb-3"
+          style={{ backgroundColor: `${color}20`, color }}
         >
           {role}
-        </span>
+        </div>
+        <div className="text-xs text-gray-500">{benchmark}</div>
       </div>
-      
-      <p className="text-gray-400 text-sm mb-4">{description}</p>
-      
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag, i) => (
-          <span 
-            key={i}
-            className="px-2 py-1 rounded text-xs bg-gray-800 text-gray-400"
-          >
-            {tag}
-          </span>
-        ))}
+
+      {/* Right: Description */}
+      <div className="md:col-span-9">
+        <h4 className="text-2xl font-semibold mb-4">{tagline}</h4>
+        <p className="text-gray-400 leading-relaxed">{description}</p>
       </div>
     </div>
   )
