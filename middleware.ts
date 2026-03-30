@@ -13,12 +13,13 @@ const PUBLIC_ROUTES = [
   '/',
   '/login',
   '/signup',
+  '/register',
   '/api/health',
   '/api/billing/webhook',
 ]
 
 // Auth routes that authenticated users should be redirected away from
-const AUTH_ROUTES = ['/login', '/signup']
+const AUTH_ROUTES = ['/login', '/signup', '/register']
 
 /**
  * Check if a path matches any of the patterns
