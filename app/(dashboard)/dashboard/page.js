@@ -66,17 +66,61 @@ export default function DashboardPage() {
     )
   }
 
+  // Preview mode for unauthenticated users
+  const isPreviewMode = status !== 'authenticated'
+
   return (
-    <div className="space-y-8">
-      {/* Personalized Greeting */}
-      <div>
-        <h1 className="text-4xl font-bold text-white mb-2">
-          Welcome back, {firstName}
-        </h1>
-        <p className="text-gray-400">
-          Continue building with your AI council
-        </p>
-      </div>
+    <div className="space-y-8 relative">
+      {/* Preview Overlay for Unauthenticated Users */}
+      {isPreviewMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="max-w-md mx-4 bg-gradient-to-br from-gray-900 to-gray-950 border border-gray-800 rounded-2xl p-8 text-center shadow-2xl">
+            <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-white mb-3">
+              Sign in to use your dashboard
+            </h2>
+            <p className="text-gray-400 mb-8">
+              Create a free account to start building with the AI Council. 50 sessions included.
+            </p>
+            
+            <div className="space-y-3">
+              <a
+                href="/register"
+                className="block w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold transition-colors"
+              >
+                Create free account
+              </a>
+              <a
+                href="/login"
+                className="block w-full px-6 py-3 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white rounded-lg font-semibold transition-colors"
+              >
+                Sign in
+              </a>
+            </div>
+
+            <p className="text-xs text-gray-600 mt-6">
+              No credit card required • 50 free sessions
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Dashboard Content - Always Visible but Blurred for Preview */}
+      <div className={isPreviewMode ? 'pointer-events-none filter blur-sm' : ''}>
+        {/* Personalized Greeting */}
+        <div>
+          <h1 className="text-4xl font-bold text-white mb-2">
+            Welcome back, {isPreviewMode ? 'Guest' : firstName}
+          </h1>
+          <p className="text-gray-400">
+            Continue building with your AI council
+          </p>
+        </div>
 
       {/* Usage Warning Banner */}
       <UsageWarningBanner 
@@ -202,9 +246,12 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+      
+      {/* Close blurred content wrapper */}
+      </div>
 
       {/* New Project Modal */}
-      {showNewProjectModal && (
+      {showNewProjectModal && !isPreviewMode && (
         <NewProjectModal 
           onClose={() => setShowNewProjectModal(false)}
           onSuccess={() => {

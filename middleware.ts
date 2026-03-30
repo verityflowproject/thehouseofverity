@@ -28,6 +28,7 @@ const PUBLIC_ROUTES = [
   '/changelog',
   '/status',
   '/compare',
+  '/dashboard', // Allow viewing dashboard without auth
 ]
 
 // Auth routes that authenticated users should be redirected away from
