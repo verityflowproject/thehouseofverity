@@ -136,7 +136,7 @@ export default function PublicPricingPage() {
               <a href="/#council" className="text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/compare" className="text-gray-400 hover:text-white transition-colors">
+              <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
                 Compare
               </Link>
               <Link href="/pricing" className="text-white font-medium">
@@ -169,7 +169,7 @@ export default function PublicPricingPage() {
               <a href="/#council" className="block text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/compare" className="block text-gray-400 hover:text-white transition-colors">
+              <Link href="/dashboard" className="block text-gray-400 hover:text-white transition-colors">
                 Compare
               </Link>
               <Link href="/pricing" className="block text-white font-medium">
@@ -403,7 +403,7 @@ export default function PublicPricingPage() {
               <ul className="space-y-3 text-sm">
                 <li><a href="/#how-it-works" className="text-gray-400 hover:text-white transition-colors">How it works</a></li>
                 <li><a href="/#council" className="text-gray-400 hover:text-white transition-colors">The AI Council</a></li>
-                <li><Link href="/compare" className="text-gray-400 hover:text-white transition-colors">Compare tools</Link></li>
+                <li><Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">Compare tools</Link></li>
                 <li><Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link></li>
                 <li><Link href="/changelog" className="text-gray-400 hover:text-white transition-colors">Changelog</Link></li>
               </ul>

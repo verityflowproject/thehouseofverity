@@ -40,8 +40,8 @@ export default function LandingPage() {
               <a href="/#council" className="text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/compare" className="text-gray-400 hover:text-white transition-colors">
-                Compare
+              <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
+                Dashboard
               </Link>
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
                 Pricing
@@ -77,8 +77,8 @@ export default function LandingPage() {
               <a href="/#council" className="block text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/compare" className="block text-gray-400 hover:text-white transition-colors">
-                Compare
+              <Link href="/dashboard" className="block text-gray-400 hover:text-white transition-colors">
+                Dashboard
               </Link>
               <Link href="/pricing" className="block text-gray-400 hover:text-white transition-colors">
                 Pricing
@@ -341,6 +341,253 @@ export default function LandingPage() {
         
         {/* Bottom gradient fade for smooth transition */}
         <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-b from-transparent to-[#0a0a0f] pointer-events-none" />
+      </section>
+
+      {/* Comparison Table Section */}
+      <section className="py-32 relative overflow-hidden">
+        {/* Background gradients */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div 
+            className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[150px] opacity-10"
+            style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)' }}
+          />
+          <div 
+            className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-10"
+            style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)' }}
+          />
+        </div>
+
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-16">
+              <div className="text-sm text-indigo-400 uppercase tracking-wider mb-4">Comparison</div>
+              <h2 className="text-5xl md:text-6xl font-bold mb-6">
+                Built different from every tool you've tried.
+              </h2>
+              <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+                Other tools are good at what they do. VerityFlow solves a different problem: code quality and context drift at the orchestration layer, not the editor layer.
+              </p>
+            </div>
+
+            {/* Comparison Table */}
+            <div className="overflow-x-auto">
+              <div className="min-w-full inline-block align-middle">
+                <div className="overflow-hidden border border-gray-800 rounded-2xl">
+                  <table className="min-w-full">
+                    {/* Sticky Header */}
+                    <thead className="sticky top-0 z-20">
+                      <tr className="bg-[#0a0a0f] border-b border-gray-800">
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400 w-1/4">
+                          Feature
+                        </th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold bg-indigo-500/10 border-x-2 border-indigo-500/50">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-indigo-400 text-base">VerityFlow</span>
+                            <span className="text-xs text-indigo-400/60 font-normal">Your AI Engineering Firm</span>
+                          </div>
+                        </th>
+                        <th className="px-6 py-4 text-center text-sm font-medium text-gray-500">
+                          Cursor
+                        </th>
+                        <th className="px-6 py-4 text-center text-sm font-medium text-gray-500">
+                          Copilot
+                        </th>
+                        <th className="px-6 py-4 text-center text-sm font-medium text-gray-500">
+                          Bolt/Lovable
+                        </th>
+                        <th className="px-6 py-4 text-center text-sm font-medium text-gray-500">
+                          Direct LLM
+                        </th>
+                      </tr>
+                    </thead>
+
+                    {/* Table Body */}
+                    <tbody className="divide-y divide-gray-800">
+                      {/* Row 1: Persistent project memory */}
+                      <tr className="bg-gray-900/20 hover:bg-gray-900/40 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-medium text-white">Persistent project memory</div>
+                          <div className="text-xs text-gray-500 mt-1">Remembers decisions across sessions</div>
+                        </td>
+                        <td className="px-6 py-5 text-center bg-indigo-500/5 border-x border-indigo-500/20">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">✓</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-yellow-500 text-sm">Partial</span>
+                          <div className="text-xs text-gray-600 mt-1">Codebase indexing only</div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                      </tr>
+
+                      {/* Row 2: Hallucination firewall */}
+                      <tr className="bg-gray-900/20 hover:bg-gray-900/40 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-medium text-white">Hallucination firewall</div>
+                          <div className="text-xs text-gray-500 mt-1">Verifies packages before writing code</div>
+                        </td>
+                        <td className="px-6 py-5 text-center bg-indigo-500/5 border-x border-indigo-500/20">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">✓</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                      </tr>
+
+                      {/* Row 3: Cross-model review */}
+                      <tr className="bg-gray-900/20 hover:bg-gray-900/40 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-medium text-white">Cross-model output review</div>
+                          <div className="text-xs text-gray-500 mt-1">Different model checks every output</div>
+                        </td>
+                        <td className="px-6 py-5 text-center bg-indigo-500/5 border-x border-indigo-500/20">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">✓</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                      </tr>
+
+                      {/* Row 4: Conflict arbitration */}
+                      <tr className="bg-gray-900/20 hover:bg-gray-900/40 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-medium text-white">Conflict arbitration</div>
+                          <div className="text-xs text-gray-500 mt-1">Third model resolves disagreements</div>
+                        </td>
+                        <td className="px-6 py-5 text-center bg-indigo-500/5 border-x border-indigo-500/20">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">✓</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                      </tr>
+
+                      {/* Row 5: Multiple specialized models */}
+                      <tr className="bg-gray-900/20 hover:bg-gray-900/40 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-medium text-white">Multiple specialized models</div>
+                          <div className="text-xs text-gray-500 mt-1">5 models, each with defined role</div>
+                        </td>
+                        <td className="px-6 py-5 text-center bg-indigo-500/5 border-x border-indigo-500/20">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">✓</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-yellow-500 text-sm">Partial</span>
+                          <div className="text-xs text-gray-600 mt-1">Can switch, no collaboration</div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                      </tr>
+
+                      {/* Row 6: Non-technical builders */}
+                      <tr className="bg-gray-900/20 hover:bg-gray-900/40 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-medium text-white">Built for non-technical builders</div>
+                          <div className="text-xs text-gray-500 mt-1">No coding knowledge required</div>
+                        </td>
+                        <td className="px-6 py-5 text-center bg-indigo-500/5 border-x border-indigo-500/20">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">✓</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                          <div className="text-xs text-gray-600 mt-1">IDE-first, assumes coding</div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-yellow-500 text-sm">Partial</span>
+                          <div className="text-xs text-gray-600 mt-1">Great for UI, weaker on logic</div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-yellow-500 text-sm">Partial</span>
+                          <div className="text-xs text-gray-600 mt-1">Requires strong prompting</div>
+                        </td>
+                      </tr>
+
+                      {/* Row 7: Full review log */}
+                      <tr className="bg-gray-900/20 hover:bg-gray-900/40 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-medium text-white">Full review log & audit trail</div>
+                          <div className="text-xs text-gray-500 mt-1">Every decision is logged and readable</div>
+                        </td>
+                        <td className="px-6 py-5 text-center bg-indigo-500/5 border-x border-indigo-500/20">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">✓</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-gray-600">—</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Acknowledgment & CTA */}
+            <div className="mt-16 text-center max-w-3xl mx-auto">
+              <p className="text-gray-400 leading-relaxed mb-8">
+                Cursor is exceptional for experienced developers working in an IDE. Copilot is a great autocomplete layer. Bolt is fast for UI prototyping. <span className="text-white font-medium">VerityFlow is for when you need a full project built correctly, not just fast.</span>
+              </p>
+              
+              <Link href="/register" className="inline-flex items-center gap-2 px-10 py-5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 rounded-lg font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-indigo-500/25">
+                Start building free
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Transition Spacer */}
@@ -613,11 +860,6 @@ export default function LandingPage() {
                 <li>
                   <a href="/#how-it-works" className="text-gray-400 hover:text-white transition-colors">
                     How it works
-                  </a>
-                </li>
-                <li>
-                  <a href="/#council" className="text-gray-400 hover:text-white transition-colors">
-                    The AI Council
                   </a>
                 </li>
                 <li>

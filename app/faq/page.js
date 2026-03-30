@@ -189,7 +189,7 @@ export default function FAQPage() {
               <a href="/#council" className="text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/compare" className="text-gray-400 hover:text-white transition-colors">
+              <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
                 Compare
               </Link>
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
@@ -223,7 +223,7 @@ export default function FAQPage() {
               <a href="/#council" className="block text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/compare" className="block text-gray-400 hover:text-white transition-colors">
+              <Link href="/dashboard" className="block text-gray-400 hover:text-white transition-colors">
                 Compare
               </Link>
               <Link href="/pricing" className="block text-gray-400 hover:text-white transition-colors">
@@ -436,7 +436,7 @@ export default function FAQPage() {
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Product</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link></li>
-                <li><Link href="/compare" className="text-gray-400 hover:text-white transition-colors">Compare</Link></li>
+                <li><Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">Dashboard</Link></li>
                 <li><Link href="/faq" className="text-gray-400 hover:text-white transition-colors">FAQ</Link></li>
                 <li><Link href="/changelog" className="text-gray-400 hover:text-white transition-colors">Changelog</Link></li>
               </ul>

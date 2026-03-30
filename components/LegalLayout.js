@@ -55,8 +55,8 @@ export default function LegalLayout({ title, lastUpdated, sections, children }) 
               <a href="/#council" className="text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/compare" className="text-gray-400 hover:text-white transition-colors">
-                Compare
+              <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
+                Dashboard
               </Link>
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
                 Pricing
