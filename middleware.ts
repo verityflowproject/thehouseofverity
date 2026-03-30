@@ -1,14 +1,12 @@
 /**
  * middleware.ts — Next.js middleware for route protection
  *
- * Protects all non-public routes by checking for NextAuth session.
- * Redirects unauthenticated users to /login.
- * Redirects authenticated users away from auth pages to /dashboard.
+ * Uses session tokens from cookies (edge-compatible) instead of database calls
+ * Protects all non-public routes by checking for NextAuth session cookie.
  */
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { auth } from '@/lib/auth'
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -50,7 +48,7 @@ function isAuthRoute(path: string): boolean {
   return AUTH_ROUTES.includes(path)
 }
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Skip middleware for public routes
@@ -58,11 +56,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check session
-  const session = await auth()
+  // Check for session cookie (edge-compatible)
+  // NextAuth v5 uses either 'authjs.session-token' or '__Secure-authjs.session-token'
+  const sessionToken = request.cookies.get('authjs.session-token') ||
+    request.cookies.get('__Secure-authjs.session-token')
 
   // Redirect unauthenticated users to login
-  if (!session) {
+  if (!sessionToken) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)

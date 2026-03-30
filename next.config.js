@@ -7,7 +7,7 @@ const nextConfig = {
     // Remove if not using Server Components
     serverComponentsExternalPackages: ['mongodb'],
   },
-  webpack(config, { dev }) {
+  webpack(config, { dev, isServer }) {
     if (dev) {
       // Reduce CPU/memory from file watching
       config.watchOptions = {
@@ -16,6 +16,25 @@ const nextConfig = {
         ignored: ['**/node_modules'],
       };
     }
+    
+    // Handle optional MongoDB dependencies
+    config.externals = config.externals || [];
+    config.externals.push({
+      'mongodb-client-encryption': 'commonjs mongodb-client-encryption',
+      'gcp-metadata': 'commonjs gcp-metadata',
+      'snappy': 'commonjs snappy',
+      'socks': 'commonjs socks',
+      'aws4': 'commonjs aws4',
+      'kerberos': 'commonjs kerberos',
+      '@mongodb-js/zstd': 'commonjs @mongodb-js/zstd',
+    });
+    
+    // Ignore optional dependencies warnings
+    config.ignoreWarnings = [
+      { module: /node_modules\/mongoose\/node_modules\/mongodb/ },
+      { module: /node_modules\/mongodb/ },
+    ];
+    
     return config;
   },
   onDemandEntries: {

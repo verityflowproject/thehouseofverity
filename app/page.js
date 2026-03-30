@@ -22,7 +22,7 @@ const COUNCIL_MESSAGES = [
 
 export default function LandingPage() {
   const [councilIndex, setCouncilIndex] = useState(0)
-  const [visibleSteps, setVisibleSteps] = useState<number[]>([])
+  const [visibleSteps, setVisibleSteps] = useState([])
 
   // Council message animation
   useEffect(() => {
@@ -165,7 +165,7 @@ export default function LandingPage() {
                 {/* Council messages */}
                 <div className="p-4 space-y-3 h-[300px] overflow-hidden">
                   {COUNCIL_MESSAGES.slice(0, councilIndex + 1).map((msg, i) => {
-                    const model = MODELS[msg.model as keyof typeof MODELS]
+                    const model = MODELS[msg.model]
                     return (
                       <div
                         key={i}
