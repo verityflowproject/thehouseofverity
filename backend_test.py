@@ -14,7 +14,7 @@ import aiohttp
 import uuid
 
 # Test configuration
-BASE_URL = os.getenv('NEXT_PUBLIC_BASE_URL', 'https://nextjs-foundation.preview.emergentagent.com')
+BASE_URL = os.getenv('NEXT_PUBLIC_BASE_URL', 'https://engineering-firm-2.preview.emergentagent.com')
 API_BASE = f"{BASE_URL}/api"
 
 class TestResult:
