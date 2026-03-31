@@ -12,6 +12,8 @@ import { connectMongoose } from '@/lib/db/mongoose'
 import { User } from '@/lib/models/User'
 import { UsageLog } from '@/lib/models/UsageLog'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
