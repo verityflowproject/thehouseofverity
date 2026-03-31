@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Plus, Folder } from 'lucide-react'
+import { Plus, Folder, Coins } from 'lucide-react'
 import { 
   ProjectCard, 
   NewProjectModal, 
@@ -15,23 +15,26 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
+  const [creditBalance, setCreditBalance] = useState(null)
 
   const user = session?.user
   const plan = user?.plan || 'free'
   const email = user?.email || ''
   const firstName = user?.name?.split(' ')[0] || 'there'
   
-  // Usage data
-  const modelCallsUsed = user?.modelCallsUsed || 0
-  const modelCallsLimit = user?.modelCallsLimit || 50
+  // Credits from session (fallback) or API
+  const credits = creditBalance?.credits ?? user?.credits ?? 0
+  const dailyCreditsUsed = creditBalance?.dailyCreditsUsed ?? 0
+  const dailyCreditLimit = creditBalance?.dailyCreditLimit ?? 90
 
   // Plan limits
   const PROJECT_LIMITS = {
     free: 3,
-    pro: 25,
-    teams: 100
+    starter: 10,
+    pro: 50,
+    studio: 999
   }
-  const projectLimit = PROJECT_LIMITS[plan]
+  const projectLimit = PROJECT_LIMITS[plan] || 3
 
   // Fetch projects
   useEffect(() => {
@@ -51,6 +54,25 @@ export default function DashboardPage() {
 
     if (status === 'authenticated') {
       fetchProjects()
+    }
+  }, [status])
+
+  // Fetch credit balance
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const res = await fetch('/api/credits/balance')
+        if (res.ok) {
+          const data = await res.json()
+          setCreditBalance(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch credit balance:', error)
+      }
+    }
+
+    if (status === 'authenticated') {
+      fetchCredits()
     }
   }, [status])
 
@@ -85,7 +107,7 @@ export default function DashboardPage() {
               Sign in to use your dashboard
             </h2>
             <p className="text-gray-400 mb-8">
-              Create a free account to start building with the AI Council. 50 sessions included.
+              Create a free account to start building with the AI Council. 50 credits included.
             </p>
             
             <div className="space-y-3">
@@ -104,7 +126,7 @@ export default function DashboardPage() {
             </div>
 
             <p className="text-xs text-gray-600 mt-6">
-              No credit card required • 50 free sessions
+              No credit card required • 50 free credits
             </p>
           </div>
         </div>
@@ -124,8 +146,9 @@ export default function DashboardPage() {
 
       {/* Usage Warning Banner */}
       <UsageWarningBanner 
-        modelCallsUsed={modelCallsUsed}
-        modelCallsLimit={modelCallsLimit}
+        credits={credits}
+        dailyCreditsUsed={dailyCreditsUsed}
+        dailyCreditLimit={dailyCreditLimit}
       />
 
       {/* Stat Bar */}
@@ -161,20 +184,29 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Usage */}
+            {/* Credits */}
             <div className="w-px h-12 bg-gray-800 hidden sm:block" />
             <div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Sessions Used</div>
-              <div className="text-lg font-semibold text-white">
-                {modelCallsUsed} / {modelCallsLimit}
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Coins className="w-3 h-3" /> Credits
               </div>
+              <div className="text-lg font-semibold text-white">
+                {credits.toLocaleString()}
+              </div>
+              {dailyCreditLimit > 0 && dailyCreditLimit !== -1 && (
+                <div className="text-xs text-gray-500">
+                  {dailyCreditsUsed} / {dailyCreditLimit} used today
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Upgrade Button */}
-          {plan === 'free' && (
-            <UpgradeButton currentPlan={plan} targetPlan="pro" />
-          )}
+          {/* Upgrade/Top-up Buttons */}
+          <div className="flex items-center gap-3">
+            {plan === 'free' && (
+              <UpgradeButton currentPlan={plan} targetPlan="starter" />
+            )}
+          </div>
         </div>
       </div>
 

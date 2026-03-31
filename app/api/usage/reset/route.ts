@@ -1,9 +1,13 @@
 /**
- * app/api/usage/reset/route.ts — Monthly usage reset
+ * app/api/usage/reset/route.ts — Monthly usage/billing cycle reset
  *
- * POST: Reset modelCallsUsed to 0 for all users
+ * POST: Reset daily credits used, grant monthly subscription credits
  * Protected by cron secret header
- * Called by Vercel monthly cron job
+ * Should be called monthly (subscription renewal handled by Stripe webhook)
+ * and daily (for daily credit limit reset)
+ *
+ * Query params:
+ *   - type: 'daily' | 'monthly' (default: 'monthly')
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -34,16 +38,42 @@ export async function POST(request: NextRequest) {
 
     await connectMongoose()
 
-    // Reset all users' usage
+    const { searchParams } = new URL(request.url)
+    const type = searchParams.get('type') || 'monthly'
+
+    if (type === 'daily') {
+      // Reset daily credit usage counters
+      const result = await User.updateMany(
+        {},
+        {
+          dailyCreditsUsed: 0,
+          dailyCreditsResetAt: new Date(),
+        }
+      )
+
+      console.log(`[Usage Reset] Reset daily credits for ${result.modifiedCount} users`)
+
+      return NextResponse.json({
+        success: true,
+        type: 'daily',
+        usersReset: result.modifiedCount,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Monthly reset: reset model call counters and grant subscription credits
+    // NOTE: Subscription credit grants are primarily handled by Stripe webhook (invoice.paid)
+    // This endpoint is a safety net and handles legacy modelCallsUsed reset
     const result = await User.updateMany(
       {},
       { modelCallsUsed: 0 }
     )
 
-    console.log(`[Usage Reset] Reset usage for ${result.modifiedCount} users`)
+    console.log(`[Usage Reset] Monthly reset for ${result.modifiedCount} users`)
 
     return NextResponse.json({
       success: true,
+      type: 'monthly',
       usersReset: result.modifiedCount,
       timestamp: new Date().toISOString(),
     })

@@ -124,10 +124,13 @@ export class UsageLimitError extends VerityFlowError {
       plan:            string
       modelCallsUsed:  number
       modelCallsLimit: number
+      credits?:        number
     },
   ) {
     super(
-      `Usage limit reached: ${opts.modelCallsUsed}/${opts.modelCallsLimit} model calls used on the ${opts.plan} plan.`,
+      opts.credits !== undefined
+        ? `Credit limit reached: ${opts.credits} credits remaining on the ${opts.plan} plan. Please top up or upgrade.`
+        : `Usage limit reached: ${opts.modelCallsUsed}/${opts.modelCallsLimit} model calls used on the ${opts.plan} plan.`,
       {
         code:       'USAGE_LIMIT_EXCEEDED',
         statusCode: 402,   // Payment Required — prompt to upgrade

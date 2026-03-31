@@ -15,9 +15,11 @@ export default function DashboardLayout({ children }) {
 
   const getPlanBadgeColor = (plan) => {
     switch (plan) {
+      case 'starter':
+        return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
       case 'pro':
         return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-      case 'teams':
+      case 'studio':
         return 'bg-purple-500/20 text-purple-300 border-purple-500/30'
       default:
         return 'bg-gray-500/20 text-gray-300 border-gray-500/30'

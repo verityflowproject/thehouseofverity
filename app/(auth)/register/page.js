@@ -8,8 +8,8 @@ import { Check } from 'lucide-react'
 // Free plan features
 const FREE_FEATURES = [
   'Access to all 5 specialized AI models',
-  '50 council sessions per month',
-  'ProjectState memory across sessions',
+  '50 credits included — no credit card needed',
+  'Persistent project context across sessions',
   'Full review log and audit trail',
   'Hallucination firewall protection',
 ]

@@ -1,5 +1,5 @@
 export { ProjectCard } from './ProjectCard'
 export { NewProjectModal } from './NewProjectModal'
-export { UsageWarningBanner } from './UsageWarningBanner'
-export { UpgradeButton } from './UpgradeButton'
+export { default as UsageWarningBanner } from './UsageWarningBanner'
+export { default as UpgradeButton } from './UpgradeButton'
 export { UsageDashboard } from './UsageDashboard'

@@ -19,7 +19,15 @@ export interface UserProfile {
   readonly name?: string
   readonly image?: string
   readonly plan: Plan
+  /** Current credit balance. */
+  readonly credits: number
+  /** Credits consumed today (resets at midnight). */
+  readonly dailyCreditsUsed: number
+  /** When the daily counter was last reset. */
+  readonly dailyCreditsResetAt: string
+  /** @deprecated Use credits. Legacy model call tracking. */
   readonly modelCallsUsed: number
+  /** @deprecated Use plan credit allocation. Legacy model call limit. */
   readonly modelCallsLimit: number
   /** ISO timestamp of the start of the current billing cycle. */
   readonly billingCycleStart: string
@@ -51,7 +59,11 @@ export interface SessionUser {
   readonly name?: string
   readonly image?: string
   readonly plan: Plan
+  /** Current credit balance. */
+  readonly credits: number
+  /** @deprecated Legacy field. */
   readonly modelCallsUsed: number
+  /** @deprecated Legacy field. */
   readonly modelCallsLimit: number
 }
 
@@ -71,6 +83,7 @@ export interface ModelCallRecord {
   readonly completionTokens: number
   readonly totalTokens: number
   readonly estimatedCostUsd: number
+  readonly creditsUsed: number
   readonly latencyMs: number
   readonly timestamp: string
 }
@@ -86,18 +99,39 @@ export interface UsageSummary {
   readonly totalCalls: number
   readonly totalTokens: number
   readonly totalCostUsd: number
+  readonly totalCreditsUsed: number
   readonly callsByModel: Record<import('./models').ModelRole, number>
   readonly tokensByModel: Record<import('./models').ModelRole, number>
   readonly callsByTaskType: Record<import('./models').TaskType, number>
-  readonly remainingCalls: number
+  readonly remainingCredits: number
   readonly usagePercent: number
+}
+
+// ─── Credit transaction types ────────────────────────────────────────────────
+
+export interface CreditTransactionRecord {
+  readonly id: string
+  readonly userId: string
+  readonly type: 'signup_grant' | 'subscription_grant' | 'topup_purchase' | 'session_deduction' | 'refund' | 'admin_adjustment'
+  readonly amount: number
+  readonly balanceAfter: number
+  readonly description: string
+  readonly sessionId?: string
+  readonly projectId?: string
+  readonly modelUsed?: string
+  readonly inputTokens?: number
+  readonly outputTokens?: number
+  readonly realCostUsd?: number
+  readonly stripePaymentIntentId?: string
+  readonly creditPackId?: string
+  readonly createdAt: string
 }
 
 // ─── Team / org ───────────────────────────────────────────────────────────────
 
 /**
- * A VerityFlow team — only available on the 'teams' plan.
- * Multiple users share a pool of model calls and project state.
+ * A VerityFlow team — available on the 'studio' plan.
+ * Multiple users share a pool of credits and project state.
  */
 export interface Team {
   readonly id: string
@@ -105,9 +139,8 @@ export interface Team {
   readonly slug: string
   readonly ownerId: string
   readonly memberIds: string[]
-  readonly modelCallsLimit: number
-  readonly modelCallsUsed: number
-  readonly plan: 'teams'
+  readonly credits: number
+  readonly plan: 'studio'
   readonly createdAt: string
   readonly updatedAt: string
 }

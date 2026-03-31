@@ -43,31 +43,31 @@ const FAQ_SECTIONS = [
     questions: [
       {
         q: 'What counts as a Council session?',
-        a: 'Each time you submit a prompt to the AI Council counts as one session, regardless of how many models are invoked internally. A session can involve up to five model calls depending on the task type and review pipeline.'
+        a: 'Each time you submit a prompt to the AI Council counts as one session. A session can involve up to five model calls depending on the task type and review pipeline. Each session costs approximately 30 credits, with the actual cost depending on task complexity and which models are used.'
       },
       {
-        q: 'What\'s the difference between a subscription and credits?',
-        a: 'Subscriptions (Free, Pro, Teams) give you a monthly allowance of Council sessions that resets each billing period. Credits are one-time purchases that never expire — buy them when you need them, use them at your own pace. You can mix both: use your monthly allowance first, then top up with credits.'
+        q: 'What\'s the difference between a subscription and credit packs?',
+        a: 'Subscriptions (Free, Starter, Pro, Studio) give you a monthly credit allocation that replenishes each billing period, plus daily usage limits and extra features. Credit packs are one-time top-up purchases that never expire — buy them when you need them, use them at your own pace. Both types of credits are equivalent and never expire.'
       },
       {
         q: 'Do unused credits expire?',
-        a: 'No. Credits never expire. If you buy 3,000 credits and use 1,000 this month, the remaining 2,000 will be there next month and the month after.'
+        a: 'No. Credits never expire. If you buy 3,000 credits and use 1,000 this month, the remaining 2,000 will be there next month and the month after. Both subscription credits and top-up credits persist indefinitely.'
       },
       {
-        q: 'Do unused monthly sessions roll over?',
-        a: 'No — subscription sessions reset monthly on your billing date. Credits are the better option if you have variable usage month to month.'
+        q: 'What are daily credit limits?',
+        a: 'Each plan has a daily credit usage limit to ensure fair access: Free (~90/day), Starter (~300/day), Pro (~1,500/day), Studio (unlimited). Daily limits reset at midnight UTC. This prevents any single user from consuming disproportionate resources.'
       },
       {
         q: 'Can I cancel my subscription anytime?',
-        a: 'Yes. Cancel through the billing portal at any time. You keep Pro or Teams access until the end of your current billing period.'
+        a: 'Yes. Cancel through the billing portal at any time. You keep your plan access until the end of your current billing period, and all remaining credits are preserved.'
       },
       {
         q: 'Is there a free trial?',
-        a: 'The Free plan is permanently free with 50 sessions per month. There\'s no time-limited trial — you can use VerityFlow for free indefinitely and upgrade when you need more.'
+        a: 'The Free plan is permanently free with 50 credits on signup. There\'s no time-limited trial — you can use VerityFlow for free and upgrade when you need more credits or higher daily limits.'
       },
       {
         q: 'How much does each session cost with BYOK?',
-        a: 'With BYOK, you only pay your API providers directly at their published rates (typically $0.01-0.15 per 1K tokens depending on the model). VerityFlow charges zero markup on provider costs. You only pay for the orchestration layer through your subscription or credit pack.'
+        a: 'With BYOK, you only pay your API providers directly at their published rates (typically $0.01-0.15 per 1K tokens depending on the model). VerityFlow charges zero credit deduction on BYOK calls. You still benefit from the orchestration layer, smart routing, and review pipeline — all at no additional cost.'
       },
       {
         q: 'What payment methods do you accept?',
@@ -94,7 +94,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What happens if I don\'t add any API keys?',
-        a: 'VerityFlow will use platform-managed API keys and deduct credits from your balance per session. This is the zero-setup path — buy credits and start building immediately with no API account setup required.'
+        a: 'VerityFlow will use platform-managed API keys and deduct credits from your balance per call. This is the zero-setup path — purchase credits or subscribe to a plan and start building immediately with no API account setup required.'
       },
       {
         q: 'Can I switch between BYOK and credits?',

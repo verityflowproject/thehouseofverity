@@ -5,6 +5,11 @@
  * (not MongoDB ObjectId) for consistency with the type system.
  *
  * Stripe fields are nullable because free-tier users have no subscription.
+ *
+ * Credit system fields:
+ *   - credits: Current credit balance
+ *   - dailyCreditsUsed: Credits consumed today (reset at midnight)
+ *   - dailyCreditsResetAt: When the daily counter was last reset
  */
 
 import { Schema, model, models, type Document, type Model } from 'mongoose'
@@ -19,21 +24,39 @@ export interface IUser extends Document {
   name?:                          string
   image?:                         string
   plan:                           Plan
-  stripeCustomerId?:              string
-  stripeSubscriptionId?:          string
+
+  // ─── Credit system fields ────────────
+  credits:                        number
+  dailyCreditsUsed:               number
+  dailyCreditsResetAt:            Date
+
+  // ─── Legacy model calls (kept for backward compat) ────────────
   modelCallsUsed:                 number
   modelCallsLimit:                number
+
+  // ─── Stripe ────────────
+  stripeCustomerId?:              string
+  stripeSubscriptionId?:          string
+
+  // ─── Billing cycle ────────────
   billingCycleStart:              Date
   billingCycleEnd:                Date
+
+  // ─── Auth ────────────
   emailVerified?:                 boolean
   provider?:                      'github' | 'google' | 'email'
   providerAccountId?:             string
+
+  // ─── Relations ────────────
   projectIds:                     string[]
+
+  // ─── Timestamps ────────────
   createdAt:                      Date
   updatedAt:                      Date
 
   // Instance helpers
   hasCallsRemaining():            boolean
+  hasCreditsRemaining():          boolean
   incrementCallUsage():           Promise<IUser>
 }
 
@@ -41,15 +64,16 @@ export interface IUserModel extends Model<IUser> {
   findByEmail(email: string): Promise<IUser | null>
 }
 
-// ─── Plan → default call limit map ───────────────────────────────────────────
+// ─── Plan → default limits map ───────────────────────────────────────────
 
 const PLAN_LIMITS: Record<Plan, number> = {
-  free:  50,
-  pro:   2_000,
-  teams: 999_999,
+  free:    50,
+  starter: 2_500,
+  pro:     8_000,
+  studio:  20_000,
 }
 
-// ─── Billing cycle helpers ────────────────────────────────────────────────────
+// ─── Billing cycle helpers ────────────────────────────────────────────────
 
 function cycleStart(): Date {
   const d = new Date()
@@ -99,23 +123,34 @@ const UserSchema = new Schema<IUser, IUserModel>(
 
     plan: {
       type:    String,
-      enum:    ['free', 'pro', 'teams'] satisfies Plan[],
+      enum:    ['free', 'starter', 'pro', 'studio'] satisfies Plan[],
       default: 'free' satisfies Plan,
       index:   true,
     },
 
-    stripeCustomerId: {
-      type:   String,
-      sparse: true, // allow null / undefined
-      index:  true,
+    // ─── Credit system ────────────
+    credits: {
+      type:    Number,
+      default: 0,
+      min:     0,
     },
 
-    stripeSubscriptionId: {
-      type:   String,
-      sparse: true,
-      index:  true,
+    dailyCreditsUsed: {
+      type:    Number,
+      default: 0,
+      min:     0,
     },
 
+    dailyCreditsResetAt: {
+      type:    Date,
+      default: () => {
+        const d = new Date()
+        d.setHours(0, 0, 0, 0)
+        return d
+      },
+    },
+
+    // ─── Legacy model calls (backward compat) ────────────
     modelCallsUsed: {
       type:    Number,
       default: 0,
@@ -126,6 +161,19 @@ const UserSchema = new Schema<IUser, IUserModel>(
       type:    Number,
       default: PLAN_LIMITS.free,
       min:     0,
+    },
+
+    // ─── Stripe ────────────
+    stripeCustomerId: {
+      type:   String,
+      sparse: true,
+      index:  true,
+    },
+
+    stripeSubscriptionId: {
+      type:   String,
+      sparse: true,
+      index:  true,
     },
 
     billingCycleStart: {
@@ -160,7 +208,6 @@ const UserSchema = new Schema<IUser, IUserModel>(
   },
   {
     timestamps:        true,
-    // Do NOT use Mongoose _id as the primary identifier — use our UUID `id`.
     toJSON:   { virtuals: true, versionKey: false },
     toObject: { virtuals: true, versionKey: false },
   },
@@ -169,7 +216,7 @@ const UserSchema = new Schema<IUser, IUserModel>(
 // ─── Indexes ──────────────────────────────────────────────────────────────────
 
 UserSchema.index({ provider: 1, providerAccountId: 1 }, { sparse: true })
-UserSchema.index({ plan: 1, modelCallsUsed: 1 })
+UserSchema.index({ plan: 1, credits: 1 })
 
 // ─── Pre-save hook: sync modelCallsLimit with plan ───────────────────────────
 
@@ -185,11 +232,14 @@ UserSchema.methods.hasCallsRemaining = function (this: IUser): boolean {
   return this.modelCallsUsed < this.modelCallsLimit
 }
 
+UserSchema.methods.hasCreditsRemaining = function (this: IUser): boolean {
+  return this.credits > 0
+}
+
 UserSchema.methods.incrementCallUsage = async function (
   this: IUser,
 ): Promise<IUser> {
   this.modelCallsUsed += 1
-  // Mongoose 9 save() typing requires explicit cast when 'this' is a custom Document interface.
   return (this as unknown as { save(): Promise<IUser> }).save()
 }
 

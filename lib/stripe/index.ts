@@ -8,5 +8,7 @@ export {
   getCallLimitForPlan,
   getPlanTier,
   buildCheckoutLineItems,
+  PLAN_CONFIGS,
+  CREDIT_PACKS,
 } from './client'
-export type { PlanTier } from './client'
+export type { PlanTier, PlanConfig, CreditPack } from './client'

@@ -2,19 +2,24 @@
  * app/api/billing/webhook/route.ts — Stripe webhook handler
  *
  * POST: Handle Stripe webhook events
- * - checkout.session.completed
+ * - checkout.session.completed (subscriptions + credit top-ups)
  * - customer.subscription.updated
  * - customer.subscription.deleted
  * - invoice.payment_failed
+ * - invoice.paid (monthly subscription credit grants)
  *
  * Must run on Node.js runtime to access raw body
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { v4 as uuidv4 } from 'uuid'
 import { stripe } from '@/lib/stripe'
 import { connectMongoose } from '@/lib/db/mongoose'
 import { User } from '@/lib/models/User'
+import { CreditTransaction } from '@/lib/models/CreditTransaction'
+import { PLAN_CONFIGS, getPlanByStripePriceId } from '@/lib/credit-costs'
+import type { Plan } from '@/lib/types'
 
 // Force Node.js runtime (not Edge)
 export const runtime = 'nodejs'
@@ -53,22 +58,15 @@ async function verifyWebhook(request: NextRequest): Promise<Stripe.Event | null>
 /**
  * Get plan from price ID
  */
-function getPlanFromPriceId(priceId: string): 'free' | 'pro' | 'teams' {
-  if (priceId === process.env.STRIPE_PRO_PRICE_ID) return 'pro'
-  if (priceId === process.env.STRIPE_TEAMS_PRICE_ID) return 'teams'
-  return 'free'
+function getPlanFromPriceId(priceId: string): Plan {
+  return getPlanByStripePriceId(priceId) ?? 'free'
 }
 
 /**
- * Get usage limit from plan
+ * Get monthly credit allocation for a plan
  */
-function getUsageLimitForPlan(plan: 'free' | 'pro' | 'teams'): number {
-  switch (plan) {
-    case 'free': return 50
-    case 'pro': return 2000
-    case 'teams': return 999999 // Unlimited
-    default: return 50
-  }
+function getMonthlyCreditsForPlan(plan: Plan): number {
+  return PLAN_CONFIGS[plan]?.monthlyCredits ?? 0
 }
 
 export async function POST(request: NextRequest) {
@@ -88,25 +86,74 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         const customerId = session.customer as string
-        const subscriptionId = session.subscription as string
-        const plan = session.metadata?.plan as 'pro' | 'teams'
+        const metadata = session.metadata ?? {}
 
-        if (!plan) {
-          console.error('[Webhook] No plan in metadata')
+        // ─── Credit Top-Up (one-time payment) ─────────────────────
+        if (metadata.type === 'credit_topup') {
+          const creditsToAdd = parseInt(metadata.credits ?? '0', 10)
+          const packId = metadata.packId
+          const userId = metadata.userId
+
+          if (creditsToAdd > 0 && userId) {
+            // Atomically add credits
+            const updatedUser = await User.findOneAndUpdate(
+              { id: userId },
+              { $inc: { credits: creditsToAdd } },
+              { new: true },
+            )
+
+            if (updatedUser) {
+              // Record transaction
+              await CreditTransaction.create({
+                id: uuidv4(),
+                userId,
+                type: 'topup_purchase',
+                amount: creditsToAdd,
+                balanceAfter: updatedUser.credits,
+                description: `Purchased ${creditsToAdd} credits (${packId})`,
+                stripePaymentIntentId: session.payment_intent as string,
+                creditPackId: packId,
+              })
+
+              console.log(`[Webhook] Added ${creditsToAdd} credits to user ${userId}`)
+            }
+          }
           break
         }
 
-        // Update user plan and subscription ID
-        await User.updateOne(
-          { stripeCustomerId: customerId },
-          {
-            plan,
-            stripeSubscriptionId: subscriptionId,
-            modelCallsLimit: getUsageLimitForPlan(plan),
-          }
-        )
+        // ─── Subscription checkout ─────────────────────────────────
+        const subscriptionId = session.subscription as string
+        const plan = (metadata.plan as Plan) ?? 'free'
 
-        console.log(`[Webhook] Upgraded user to ${plan}`)
+        if (plan !== 'free') {
+          const monthlyCredits = getMonthlyCreditsForPlan(plan)
+
+          // Update user plan, subscription, and grant monthly credits
+          const updatedUser = await User.findOneAndUpdate(
+            { stripeCustomerId: customerId },
+            {
+              plan,
+              stripeSubscriptionId: subscriptionId,
+              modelCallsLimit: monthlyCredits,
+              $inc: { credits: monthlyCredits },
+            },
+            { new: true },
+          )
+
+          if (updatedUser) {
+            // Record subscription credit grant
+            await CreditTransaction.create({
+              id: uuidv4(),
+              userId: updatedUser.id,
+              type: 'subscription_grant',
+              amount: monthlyCredits,
+              balanceAfter: updatedUser.credits,
+              description: `${PLAN_CONFIGS[plan].label} plan subscription — ${monthlyCredits.toLocaleString()} credits`,
+            })
+          }
+
+          console.log(`[Webhook] Upgraded user to ${plan} with ${monthlyCredits} credits`)
+        }
         break
       }
 
@@ -127,11 +174,49 @@ export async function POST(request: NextRequest) {
           { stripeCustomerId: customerId },
           {
             plan,
-            modelCallsLimit: getUsageLimitForPlan(plan),
+            modelCallsLimit: getMonthlyCreditsForPlan(plan),
           }
         )
 
-        console.log(`[Webhook] Updated user to ${plan}`)
+        console.log(`[Webhook] Updated user plan to ${plan}`)
+        break
+      }
+
+      case 'invoice.paid': {
+        // Monthly subscription renewal — grant credits
+        const invoice = event.data.object as Stripe.Invoice
+        const customerId = invoice.customer as string
+
+        // Skip the first invoice (already handled by checkout.session.completed)
+        if (invoice.billing_reason === 'subscription_create') {
+          break
+        }
+
+        const user = await User.findOne({ stripeCustomerId: customerId })
+        if (user && user.plan !== 'free') {
+          const monthlyCredits = getMonthlyCreditsForPlan(user.plan as Plan)
+
+          if (monthlyCredits > 0) {
+            const updatedUser = await User.findOneAndUpdate(
+              { stripeCustomerId: customerId },
+              { $inc: { credits: monthlyCredits } },
+              { new: true },
+            )
+
+            if (updatedUser) {
+              await CreditTransaction.create({
+                id: uuidv4(),
+                userId: updatedUser.id,
+                type: 'subscription_grant',
+                amount: monthlyCredits,
+                balanceAfter: updatedUser.credits,
+                description: `Monthly ${PLAN_CONFIGS[user.plan as Plan].label} renewal — ${monthlyCredits.toLocaleString()} credits`,
+              })
+
+              console.log(`[Webhook] Granted ${monthlyCredits} monthly credits to user`)
+            }
+          }
+        }
         break
       }
 
@@ -140,7 +225,7 @@ export async function POST(request: NextRequest) {
         const obj = event.data.object as Stripe.Subscription | Stripe.Invoice
         const customerId = obj.customer as string
 
-        // Downgrade to free tier
+        // Downgrade to free tier (keep existing credits)
         await User.updateOne(
           { stripeCustomerId: customerId },
           {

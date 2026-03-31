@@ -827,7 +827,7 @@ export default function LandingPage() {
             </Link>
             
             <p className="text-sm text-gray-600 mt-8">
-              Free tier: 50 model call rounds. Bring your own API keys. No credit card required.
+              Free tier: 50 credits included. Bring your own API keys. No credit card required.
             </p>
           </div>
         </div>
@@ -1070,7 +1070,7 @@ function LiveCouncilSession() {
       model: 'Claude',
       role: 'Architect',
       color: MODEL_COLORS.claude,
-      content: 'Architecture decision: users collection needs `plan` [enum: free/pro] and `stripeCustomerId`. Designing API routes: /api/billing/webhook, /api/auth/[...nextauth]. Persisting to ProjectState...',
+      content: 'Architecture decision: users collection needs `plan` [enum: free/starter/pro/studio] and `stripeCustomerId`. Designing API routes: /api/billing/webhook, /api/auth/[...nextauth]. Persisting to ProjectState...',
       duration: 3000
     },
     {

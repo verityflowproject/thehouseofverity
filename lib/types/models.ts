@@ -82,23 +82,42 @@ export const TASK_TYPES: readonly TaskType[] = [
 /**
  * Subscription plan tiers for VerityFlow accounts.
  *
- * - free   : Limited monthly model calls (no council sessions)
- * - pro    : Higher limits + council sessions
- * - teams  : Unlimited calls, shared project state, SSO
+ * - free    : 50 credits on signup, basic access
+ * - starter : Monthly credits, extended limits
+ * - pro     : High-volume credits, priority routing
+ * - studio  : Maximum credits, unlimited daily usage
  */
-export type Plan = 'free' | 'pro' | 'teams'
+export type Plan = 'free' | 'starter' | 'pro' | 'studio'
 
 export const PLAN_LABELS: Record<Plan, string> = {
-  free:  'Free',
-  pro:   'Pro',
-  teams: 'Teams',
+  free:    'Free',
+  starter: 'Starter',
+  pro:     'Pro',
+  studio:  'Studio',
 } as const
 
-/** Default modelCallsLimit per plan per billing cycle. */
+/** Default monthly credit allocation per plan. */
+export const PLAN_CREDIT_ALLOCATIONS: Record<Plan, number> = {
+  free:    0,       // 50 one-time on signup
+  starter: 2_500,
+  pro:     8_000,
+  studio:  20_000,
+} as const
+
+/** Daily credit usage limits per plan. */
+export const PLAN_DAILY_CREDIT_LIMITS: Record<Plan, number> = {
+  free:    90,
+  starter: 300,
+  pro:     1_500,
+  studio:  Infinity,
+} as const
+
+/** @deprecated Use PLAN_CREDIT_ALLOCATIONS instead. Kept for backward compat. */
 export const PLAN_CALL_LIMITS: Record<Plan, number> = {
-  free:  50,
-  pro:   2_000,
-  teams: Infinity,
+  free:    50,
+  starter: 2_500,
+  pro:     8_000,
+  studio:  20_000,
 } as const
 
 // ─── Severity levels ─────────────────────────────────────────────────────────

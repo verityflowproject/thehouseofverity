@@ -89,12 +89,14 @@ export async function GET(request: NextRequest) {
         endDate: endDate.toISOString(),
       },
       totals,
-      byModel,
+      modelBreakdown: byModel,
       byDay,
       currentUsage: {
+        credits: user.credits ?? 0,
+        plan: user.plan,
+        /** @deprecated Use credits instead */
         used: user.modelCallsUsed || 0,
         limit: user.modelCallsLimit || 50,
-        plan: user.plan,
       },
     })
   } catch (error) {

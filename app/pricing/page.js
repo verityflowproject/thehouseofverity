@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Check, ArrowRight, Menu, X, Zap, ChevronRight } from 'lucide-react'
+import { Check, ArrowRight, Menu, X, Zap, ChevronRight, Coins } from 'lucide-react'
 
 const PLANS = [
   {
@@ -11,11 +11,13 @@ const PLANS = [
     price: '$0',
     period: 'forever',
     tagline: 'No credit card required',
-    sessions: 50,
+    credits: '50 on signup',
+    dailyLimit: '~3 sessions/day',
     features: [
-      '50 Council sessions/month',
+      '50 credits on signup',
       'All 5 AI models',
-      'ProjectState memory system',
+      '3 projects',
+      '~3 council sessions/day',
       'Hallucination firewall',
       'Full review log',
       'BYOK supported — zero markup'
@@ -25,41 +27,68 @@ const PLANS = [
     popular: false
   },
   {
-    id: 'pro',
-    name: 'Pro',
-    price: '$29',
+    id: 'starter',
+    name: 'Starter',
+    price: '$19',
     period: 'month',
     tagline: '',
-    sessions: 2000,
+    credits: '2,500/mo',
+    dailyLimit: '~10 sessions/day',
     features: [
-      '2,000 Council sessions/month',
+      '2,500 credits/month',
       'Everything in Free',
-      'Priority model routing',
+      '10 projects',
+      '~10 council sessions/day',
       'Extended session history',
       'Email support',
       'BYOK supported'
     ],
-    cta: 'Start Pro trial',
+    cta: 'Start Starter plan',
+    ctaLink: '/register?plan=starter',
+    popular: false
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: '$49',
+    period: 'month',
+    tagline: '',
+    credits: '8,000/mo',
+    dailyLimit: '~50 sessions/day',
+    features: [
+      '8,000 credits/month',
+      'Everything in Starter',
+      '50 projects',
+      '~50 council sessions/day',
+      'Priority model routing',
+      'Usage analytics dashboard',
+      'Priority support',
+      'BYOK supported'
+    ],
+    cta: 'Start Pro plan',
     ctaLink: '/register?plan=pro',
     popular: true
   },
   {
-    id: 'teams',
-    name: 'Teams',
+    id: 'studio',
+    name: 'Studio',
     price: '$99',
     period: 'month',
     tagline: '',
-    sessions: 10000,
+    credits: '20,000/mo',
+    dailyLimit: 'Unlimited',
     features: [
-      '10,000 Council sessions/month',
+      '20,000 credits/month',
       'Everything in Pro',
-      'Team project sharing',
-      'Usage analytics per member',
-      'Priority support',
+      'Unlimited projects',
+      'Unlimited daily usage',
+      'Custom model routing rules',
+      'Team collaboration',
+      'Dedicated support & SLA',
       'BYOK supported'
     ],
-    cta: 'Start Teams trial',
-    ctaLink: '/register?plan=teams',
+    cta: 'Start Studio plan',
+    ctaLink: '/register?plan=studio',
     popular: false
   }
 ]
@@ -98,16 +127,16 @@ const CREDIT_PACKS = [
 
 const FAQ_TEASER = [
   {
-    question: 'What counts as a Council session?',
-    answer: 'A Council session is triggered when you send a prompt to VerityFlow. The AI council collaborates to verify dependencies, design architecture, generate code, and review output. All of this coordination counts as one session, regardless of how many models are involved.'
+    question: 'How do credits work?',
+    answer: 'Credits are VerityFlow\'s universal currency. Each council session costs approximately 30 credits, depending on task complexity and which models are used. Credits are deducted in real-time based on actual token usage — you only pay for what you use. Simple tasks use fewer credits (routed to efficient models), while complex tasks may use more.'
   },
   {
     question: 'Do credits expire?',
-    answer: 'No. Credits purchased through one-time credit packs never expire. You can use them at your own pace without any time pressure or subscription commitment.'
+    answer: 'No. Credits purchased through one-time credit packs never expire. Monthly subscription credits are also persistent — they roll over and never disappear. You can use them at your own pace.'
   },
   {
     question: 'Can I use my own API keys?',
-    answer: 'Yes. All plans support BYOK (Bring Your Own Keys). Connect your Anthropic, OpenAI, Mistral, Google AI, and Perplexity keys directly. VerityFlow never marks up provider costs — you pay providers directly at their standard rates.'
+    answer: 'Yes. All plans support BYOK (Bring Your Own Keys). Connect your Anthropic, OpenAI, Mistral, Google AI, and Perplexity keys directly. When using your own keys, credits are not deducted for API calls — you pay providers directly at their standard rates.'
   }
 ]
 
@@ -137,7 +166,7 @@ export default function PublicPricingPage() {
                 The Council
               </a>
               <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
-                Compare
+                Dashboard
               </Link>
               <Link href="/pricing" className="text-white font-medium">
                 Pricing
@@ -169,9 +198,6 @@ export default function PublicPricingPage() {
               <a href="/#council" className="block text-gray-400 hover:text-white transition-colors">
                 The Council
               </a>
-              <Link href="/dashboard" className="block text-gray-400 hover:text-white transition-colors">
-                Compare
-              </Link>
               <Link href="/pricing" className="block text-white font-medium">
                 Pricing
               </Link>
@@ -194,19 +220,51 @@ export default function PublicPricingPage() {
           {/* Header */}
           <div className="max-w-4xl mx-auto text-center mb-16">
             <h1 className="text-5xl md:text-6xl font-bold mb-6">
-              Simple, transparent pricing
+              Simple, credit-based pricing
             </h1>
             <p className="text-xl text-gray-400">
-              Choose a subscription or buy credits. All plans include the full AI council.
+              Subscribe monthly for credits, or buy packs anytime. All plans include the full AI council.
             </p>
           </div>
 
+          {/* How Credits Work */}
+          <div className="max-w-5xl mx-auto mb-16">
+            <div className="bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 border border-indigo-500/20 rounded-2xl p-8">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Coins className="w-6 h-6 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-3">How credits work</h3>
+                  <p className="text-gray-300 leading-relaxed mb-4">
+                    Each council session costs approximately <span className="text-white font-semibold">~30 credits</span>. Credits are deducted in real-time based on actual token usage. 
+                    Simple tasks are routed to efficient models (fewer credits), while complex tasks use premium models.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    <div className="bg-gray-900/60 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-emerald-400">~30</div>
+                      <div className="text-xs text-gray-400">credits per session</div>
+                    </div>
+                    <div className="bg-gray-900/60 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-blue-400">5</div>
+                      <div className="text-xs text-gray-400">model calls per session</div>
+                    </div>
+                    <div className="bg-gray-900/60 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-purple-400">80%</div>
+                      <div className="text-xs text-gray-400">tasks use efficient routing</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Plan Cards */}
-          <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto mb-20">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto mb-20">
             {PLANS.map((plan) => (
               <div
                 key={plan.id}
-                className={`relative bg-gray-900/50 border rounded-2xl p-8 flex flex-col ${
+                className={`relative bg-gray-900/50 border rounded-2xl p-6 flex flex-col ${
                   plan.popular 
                     ? 'border-indigo-500 shadow-lg shadow-indigo-500/20' 
                     : 'border-gray-800'
@@ -221,21 +279,25 @@ export default function PublicPricingPage() {
                 )}
 
                 <div className="mb-6">
-                  <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                  <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
                   <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-4xl font-bold">{plan.price}</span>
+                    <span className="text-3xl font-bold">{plan.price}</span>
                     <span className="text-gray-400">/ {plan.period}</span>
                   </div>
                   {plan.tagline && (
                     <p className="text-sm text-gray-500">{plan.tagline}</p>
                   )}
+                  <div className="mt-3 flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-indigo-400" />
+                    <span className="text-sm text-indigo-300 font-medium">{plan.credits} credits</span>
+                  </div>
                 </div>
 
                 <div className="border-t border-gray-800 pt-6 mb-6">
-                  <ul className="space-y-3">
+                  <ul className="space-y-2.5">
                     {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-3">
-                        <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                      <li key={i} className="flex items-start gap-2.5">
+                        <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                         <span className="text-gray-300 text-sm">{feature}</span>
                       </li>
                     ))}
@@ -245,7 +307,7 @@ export default function PublicPricingPage() {
                 <div className="mt-auto pt-6 border-t border-gray-800">
                   <Link
                     href={plan.ctaLink}
-                    className={`w-full px-6 py-3 rounded-lg font-semibold text-center transition-colors flex items-center justify-center gap-2 ${
+                    className={`w-full px-6 py-3 rounded-lg font-semibold text-center transition-colors flex items-center justify-center gap-2 text-sm ${
                       plan.popular
                         ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                         : 'bg-gray-800 hover:bg-gray-700 text-white'
@@ -269,7 +331,7 @@ export default function PublicPricingPage() {
                 <div>
                   <h3 className="text-xl font-semibold mb-3">All plans support Bring Your Own Keys</h3>
                   <p className="text-gray-300 leading-relaxed">
-                    Connect your Anthropic, OpenAI, Mistral, Google AI, and Perplexity keys — or use a single OpenRouter key to cover all five models. Pay providers directly at cost. VerityFlow charges only for orchestration.
+                    Connect your Anthropic, OpenAI, Mistral, Google AI, and Perplexity keys — or use a single OpenRouter key to cover all five models. When using your own keys, <span className="text-white font-medium">credits are not deducted</span> for API calls. You pay providers directly at their standard rates.
                   </p>
                 </div>
               </div>
@@ -280,7 +342,7 @@ export default function PublicPricingPage() {
           <div className="max-w-7xl mx-auto mb-20">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold mb-4">
-                Or buy credits — no subscription required
+                Need more credits? Top up anytime.
               </h2>
               <p className="text-xl text-gray-400">
                 One-time purchases. No commitment. Credits never expire.
@@ -354,7 +416,7 @@ export default function PublicPricingPage() {
           <div className="max-w-4xl mx-auto text-center">
             <div className="bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-2xl p-12">
               <h2 className="text-3xl font-bold mb-4">
-                Start building free. No credit card required.
+                Start building free. 50 credits on us.
               </h2>
               <p className="text-xl text-gray-400 mb-8">
                 Join developers who trust VerityFlow to build production-ready code.
@@ -386,14 +448,6 @@ export default function PublicPricingPage() {
               <p className="text-sm text-gray-500 leading-relaxed">
                 Five specialized models. One persistent context. Code you can trust.
               </p>
-              <div className="flex items-center gap-3 pt-2">
-                <a href="https://twitter.com/verityflow" target="_blank" rel="noopener noreferrer" className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                </a>
-                <a href="https://github.com/verityflowproject" target="_blank" rel="noopener noreferrer" className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.840 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                </a>
-              </div>
               <p className="text-xs text-gray-600 pt-4">© 2026 VerityFlow. All rights reserved.</p>
             </div>
 
@@ -403,7 +457,6 @@ export default function PublicPricingPage() {
               <ul className="space-y-3 text-sm">
                 <li><a href="/#how-it-works" className="text-gray-400 hover:text-white transition-colors">How it works</a></li>
                 <li><a href="/#council" className="text-gray-400 hover:text-white transition-colors">The AI Council</a></li>
-                <li><Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">Compare tools</Link></li>
                 <li><Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link></li>
                 <li><Link href="/changelog" className="text-gray-400 hover:text-white transition-colors">Changelog</Link></li>
               </ul>
@@ -414,8 +467,6 @@ export default function PublicPricingPage() {
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Developers</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/docs" className="text-gray-400 hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link href="/docs/api" className="text-gray-400 hover:text-white transition-colors">API Reference</Link></li>
-                <li><a href="https://github.com/verityflowproject" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-1">GitHub <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></a></li>
                 <li><Link href="/status" className="text-gray-400 hover:text-white transition-colors">Status</Link></li>
               </ul>
             </div>
@@ -425,14 +476,12 @@ export default function PublicPricingPage() {
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Company</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/about" className="text-gray-400 hover:text-white transition-colors">About</Link></li>
-                <li><Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link></li>
                 <li><Link href="/contact" className="text-gray-400 hover:text-white transition-colors">Contact</Link></li>
               </ul>
               <div className="mt-6 pt-6 border-t border-gray-800">
                 <ul className="space-y-3 text-sm">
                   <li><Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
                   <li><Link href="/terms" className="text-gray-400 hover:text-white transition-colors">Terms of Service</Link></li>
-                  <li><Link href="/cookies" className="text-gray-400 hover:text-white transition-colors">Cookie Policy</Link></li>
                 </ul>
               </div>
             </div>

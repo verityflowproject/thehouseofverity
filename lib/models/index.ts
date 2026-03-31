@@ -11,11 +11,12 @@
  *   const user = await User.findByEmail('alice@example.com')
  */
 
-export { User }        from './User'
-export { Project }     from './Project'
-export { ProjectState }from './ProjectState'
-export { ReviewLog }   from './ReviewLog'
+export { User }               from './User'
+export { Project }            from './Project'
+export { ProjectState }       from './ProjectState'
+export { ReviewLog }          from './ReviewLog'
 export { UsageLog, estimateCost, MODEL_COST_PER_1K_TOKENS } from './UsageLog'
+export { CreditTransaction }  from './CreditTransaction'
 
 // Re-export document interfaces for typed consumers
 export type { IUser,         IUserModel         } from './User'
@@ -28,3 +29,8 @@ export type {
   UserUsageAggregate,
   ProjectUsageAggregate,
 } from './UsageLog'
+export type {
+  ICreditTransaction,
+  ICreditTransactionModel,
+  CreditTransactionType,
+} from './CreditTransaction'

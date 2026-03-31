@@ -35,6 +35,7 @@ declare module 'next-auth' {
   interface User extends DefaultUser {
     id: string
     plan: Plan
+    credits: number
     modelCallsUsed: number
     modelCallsLimit: number
   }
@@ -52,6 +53,7 @@ declare module 'next-auth/jwt' {
     /** UUID v4 matching the user document's `id` field. */
     id: string
     plan: Plan
+    credits: number
     modelCallsUsed: number
     modelCallsLimit: number
   }
@@ -73,8 +75,10 @@ export interface VerityFlowSessionUser {
   image?: string
   /** Billing plan tier. */
   plan: Plan
-  /** Number of model calls consumed in the current billing cycle. */
+  /** Current credit balance. */
+  credits: number
+  /** @deprecated Legacy. Number of model calls consumed in the current billing cycle. */
   modelCallsUsed: number
-  /** Hard cap for the current billing cycle (based on plan). */
+  /** @deprecated Legacy. Hard cap for the current billing cycle (based on plan). */
   modelCallsLimit: number
 }

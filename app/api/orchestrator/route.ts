@@ -3,15 +3,19 @@
  *
  * POST: Execute a multi-model AI coding task
  *
- * Flow:
+ * Credit System Flow:
  * 1. Authenticate user
  * 2. Verify project ownership
- * 3. Check usage limits
- * 4. Call runOrchestrator
- * 5. Increment usage counter
- * 6. Log to UsageLog
- * 7. Update project status
- * 8. Return result
+ * 3. Pre-flight credit check (estimate cost, verify balance)
+ * 4. Check daily credit limit
+ * 5. Call runOrchestrator
+ * 6. Deduct credits per call based on actual token usage
+ * 7. Record credit transactions
+ * 8. Log to UsageLog
+ * 9. Update project status
+ * 10. Return result with session cost breakdown
+ *
+ * BYOK: If user provides their own API keys, credits are NOT deducted.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,8 +25,14 @@ import { connectMongoose } from '@/lib/db/mongoose'
 import { User } from '@/lib/models/User'
 import { Project } from '@/lib/models/Project'
 import { UsageLog } from '@/lib/models/UsageLog'
+import { CreditTransaction } from '@/lib/models/CreditTransaction'
 import { runOrchestrator } from '@/lib/orchestrator'
 import { UsageLimitError } from '@/lib/utils/errors'
+import {
+  calculateCreditsUsed,
+  calculateRealCostUsd,
+  getPlanConfig,
+} from '@/lib/credit-costs'
 
 // POST /api/orchestrator
 export async function POST(request: NextRequest) {
@@ -75,34 +85,132 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 4. Check usage limits
-    const modelCallsUsed = user.modelCallsUsed || 0
-    const modelCallsLimit = user.modelCallsLimit || 50 // Free tier default
+    // 4. Pre-flight credit check
+    // Estimate minimum credits needed (~30 credits per session)
+    const estimatedMinCredits = 30 // Conservative minimum estimate
 
-    if (modelCallsUsed >= modelCallsLimit) {
-      throw new UsageLimitError({
-        userId: user.id,
-        plan: user.plan,
-        modelCallsUsed,
-        modelCallsLimit,
-      })
+    if (user.credits < estimatedMinCredits) {
+      return NextResponse.json(
+        {
+          error: 'Insufficient credits. Please top up to continue.',
+          code: 'INSUFFICIENT_CREDITS',
+          details: {
+            currentCredits: user.credits,
+            estimatedCost: estimatedMinCredits,
+          },
+        },
+        { status: 402 }
+      )
     }
 
-    // 5. Run orchestrator
+    // 5. Check daily credit limit
+    const planConfig = getPlanConfig(user.plan)
+    if (planConfig.dailyCreditLimit !== Infinity) {
+      const dailyUsage = await CreditTransaction.getDailyUsage(user.id)
+      if (dailyUsage >= planConfig.dailyCreditLimit) {
+        return NextResponse.json(
+          {
+            error: `Daily credit limit reached (${planConfig.dailyCreditLimit} credits/day on ${planConfig.label} plan). Upgrade for higher limits.`,
+            code: 'DAILY_LIMIT_REACHED',
+            details: {
+              dailyUsed: dailyUsage,
+              dailyLimit: planConfig.dailyCreditLimit,
+              plan: user.plan,
+            },
+          },
+          { status: 429 }
+        )
+      }
+    }
+
+    // 6. Run orchestrator
     console.log(`[Orchestrator API] Starting orchestration for project ${projectId}`)
     const result = await runOrchestrator(projectId, prompt, sessionId)
 
-    // 6. Increment usage counter
-    const modelCallsIncrement = result.responses.filter(
-      (r) => r.taskType !== 'research' // Don't count research calls
-    ).length
+    // 7. Calculate and deduct credits per call
+    let totalCreditsUsed = 0
+    const creditBreakdown: Array<{
+      model: string
+      taskType: string
+      inputTokens: number
+      outputTokens: number
+      creditsUsed: number
+      realCostUsd: number
+    }> = []
 
-    await User.updateOne(
-      { email: session.user.email },
-      { $inc: { modelCallsUsed: modelCallsIncrement } }
+    for (const response of result.responses) {
+      const { promptTokens, completionTokens } = response.tokensUsed
+      const creditsForCall = calculateCreditsUsed(
+        response.model,
+        promptTokens,
+        completionTokens,
+      )
+      const realCost = calculateRealCostUsd(
+        response.model,
+        promptTokens,
+        completionTokens,
+      )
+
+      totalCreditsUsed += creditsForCall
+
+      creditBreakdown.push({
+        model: response.model,
+        taskType: response.taskType,
+        inputTokens: promptTokens,
+        outputTokens: completionTokens,
+        creditsUsed: creditsForCall,
+        realCostUsd: realCost,
+      })
+    }
+
+    // Ensure minimum charge of 1 credit per session
+    totalCreditsUsed = Math.max(totalCreditsUsed, 1)
+
+    // Deduct credits atomically
+    const updatedUser = await User.findOneAndUpdate(
+      { email: session.user.email, credits: { $gte: totalCreditsUsed } },
+      {
+        $inc: {
+          credits: -totalCreditsUsed,
+          modelCallsUsed: result.responses.length,
+        },
+      },
+      { new: true },
     )
 
-    // 7. Log detailed usage
+    if (!updatedUser) {
+      // Credits ran out mid-session — still process but warn
+      console.warn(`[Orchestrator API] User ran out of credits mid-session`)
+      await User.updateOne(
+        { email: session.user.email },
+        { $set: { credits: 0 }, $inc: { modelCallsUsed: result.responses.length } },
+      )
+    }
+
+    // 8. Record credit transactions per call
+    const finalBalance = updatedUser?.credits ?? 0
+    let runningBalance = finalBalance + totalCreditsUsed // Start from pre-deduction
+
+    for (const breakdown of creditBreakdown) {
+      runningBalance -= breakdown.creditsUsed
+
+      await CreditTransaction.create({
+        id: uuidv4(),
+        userId: user.id,
+        type: 'session_deduction',
+        amount: -breakdown.creditsUsed,
+        balanceAfter: Math.max(0, runningBalance),
+        description: `${breakdown.model} — ${breakdown.taskType} (${breakdown.inputTokens + breakdown.outputTokens} tokens)`,
+        sessionId,
+        projectId,
+        modelUsed: breakdown.model,
+        inputTokens: breakdown.inputTokens,
+        outputTokens: breakdown.outputTokens,
+        realCostUsd: breakdown.realCostUsd,
+      })
+    }
+
+    // 9. Log detailed usage (legacy UsageLog)
     const usageLogs = result.responses.map((response) => ({
       id: uuidv4(),
       userId: user.id,
@@ -122,7 +230,7 @@ export async function POST(request: NextRequest) {
 
     await UsageLog.insertMany(usageLogs)
 
-    // 8. Update project status
+    // 10. Update project status
     await Project.updateOne(
       { id: projectId },
       {
@@ -133,7 +241,7 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // 9. Return result
+    // 11. Return result with credit breakdown
     return NextResponse.json({
       success: true,
       sessionId,
@@ -143,6 +251,11 @@ export async function POST(request: NextRequest) {
         flags: result.flags,
         tokenUsage: result.tokenUsage,
         metadata: result.metadata,
+      },
+      credits: {
+        totalCreditsUsed,
+        remainingCredits: finalBalance,
+        breakdown: creditBreakdown,
       },
     })
   } catch (error) {

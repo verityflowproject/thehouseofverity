@@ -20,6 +20,7 @@ import clientPromise from '@/lib/db/mongo-client'
 import { connectMongoose } from '@/lib/db/mongoose'
 import { User } from '@/lib/models/User'
 import { PLAN_CALL_LIMITS } from '@/lib/types'
+import { SIGNUP_FREE_CREDITS } from '@/lib/credit-costs'
 import type { Plan } from '@/lib/types'
 
 // ─── Env guard ────────────────────────────────────────────────────────────────
@@ -113,8 +114,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name:             user.name   ?? undefined,
             image:            user.image  ?? undefined,
             plan:             'free' satisfies Plan,
+            credits:          SIGNUP_FREE_CREDITS,  // 50 free credits
             modelCallsUsed:   0,
-            modelCallsLimit:  PLAN_CALL_LIMITS.free,  // 50
+            modelCallsLimit:  PLAN_CALL_LIMITS.free,
           })
         }
       } catch (err) {
@@ -141,12 +143,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const vfUser = await User.findOne(
           { email: session.user.email.toLowerCase() },
-          'id plan modelCallsUsed modelCallsLimit',
+          'id plan credits dailyCreditsUsed modelCallsUsed modelCallsLimit',
         ).lean()
 
         if (vfUser) {
           session.user.id               = vfUser.id as string
           session.user.plan             = (vfUser.plan as Plan) ?? 'free'
+          session.user.credits          = (vfUser.credits as number) ?? 0
           session.user.modelCallsUsed   = (vfUser.modelCallsUsed   as number) ?? 0
           session.user.modelCallsLimit  = (vfUser.modelCallsLimit  as number) ?? PLAN_CALL_LIMITS.free
         }
