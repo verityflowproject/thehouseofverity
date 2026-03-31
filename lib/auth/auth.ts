@@ -28,6 +28,10 @@ if (!process.env.AUTH_SECRET) {
   throw new Error('[VerityFlow] AUTH_SECRET is not set. Run: openssl rand -hex 32')
 }
 
+if (!process.env.DB_NAME) {
+  throw new Error('[VerityFlow] DB_NAME is not set. Add it to your .env file.')
+}
+
 // ─── NextAuth v5 configuration ─────────────────────────────────────────────────────
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -37,7 +41,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
    * in their own collections (separate from our vf_users Mongoose model).
    */
   adapter: MongoDBAdapter(clientPromise, {
-    databaseName: process.env.DB_NAME ?? 'verityflow',
+    databaseName: process.env.DB_NAME,
     collections: {
       Users:              'auth_users',
       Accounts:           'auth_accounts',
