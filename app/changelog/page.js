@@ -96,7 +96,7 @@ export default function ChangelogPage() {
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-indigo-400 mt-1">✦</span>
-                    <span>BYOK support — individual keys or single OpenRouter key</span>
+                    <span>Managed model access — all five AI providers secured by VerityFlow</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-indigo-400 mt-1">✦</span>

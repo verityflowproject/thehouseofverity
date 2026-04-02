@@ -1,24 +1,21 @@
 /**
- * lib/models/index.ts — Mongoose model barrel
+ * lib/models/index.ts — Firestore model barrel
  *
- * Import from '@/lib/models' to access all five Mongoose models.
- * Always call `await connectMongoose()` before using any model.
+ * Import from '@/lib/models' to access all Firestore model helpers.
+ * No connection setup is needed — Firebase Admin SDK connects automatically.
  *
  * @example
  *   import { User, Project, ProjectState, ReviewLog, UsageLog } from '@/lib/models'
- *   import { connectMongoose } from '@/lib/db'
- *   await connectMongoose()
  *   const user = await User.findByEmail('alice@example.com')
  */
 
-export { User }               from './User'
-export { Project }            from './Project'
-export { ProjectState }       from './ProjectState'
-export { ReviewLog }          from './ReviewLog'
+export { User }              from './User'
+export { Project }           from './Project'
+export { ProjectState }      from './ProjectState'
+export { ReviewLog }         from './ReviewLog'
 export { UsageLog, estimateCost, MODEL_COST_PER_1K_TOKENS } from './UsageLog'
-export { CreditTransaction }  from './CreditTransaction'
+export { CreditTransaction } from './CreditTransaction'
 
-// Re-export document interfaces for typed consumers
 export type { IUser,         IUserModel         } from './User'
 export type { IProject,      IProjectModel,  ProjectStatus  } from './Project'
 export type { IProjectState, IProjectStateModel } from './ProjectState'

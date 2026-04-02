@@ -30,12 +30,12 @@ const CATEGORIES = [
     placeholder: 'Describe your billing question or issue. Include your account email if different from above.'
   },
   {
-    id: 'byok',
+    id: 'credits',
     icon: '⬢',
-    title: 'BYOK & API Keys',
-    description: 'Help setting up your own provider keys, OpenRouter configuration, or key encryption questions.',
-    subject: 'Help with API key setup',
-    placeholder: 'Which provider key are you having trouble with? What happens when you try to save it?'
+    title: 'Credits & Usage',
+    description: 'Questions about credit deductions, cost breakdowns, usage dashboards, or unexpected charges.',
+    subject: 'Credits or usage question',
+    placeholder: 'Describe your question about credits or usage. Include your account email if helpful.'
   },
   {
     id: 'feedback',
@@ -59,7 +59,7 @@ const SUCCESS_NOTES = {
   bug: 'In the meantime, check the status page at /status.',
   feature: 'We review all feature requests — popular ones get prioritized.',
   billing: 'For urgent billing issues, include your Stripe receipt number in a follow-up.',
-  byok: 'The FAQ has a full BYOK setup guide: /faq#byok',
+  credits: 'The FAQ has answers to common credit questions: /faq',
   feedback: 'Thank you — honest feedback is how we get better.',
   other: "We'll route your message to the right person."
 }

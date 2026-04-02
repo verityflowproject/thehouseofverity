@@ -81,7 +81,7 @@ export default function TermsPage() {
         <section id="ai-providers">
           <h2 className="text-2xl font-semibold text-white mb-4">5. AI Provider Terms</h2>
           <p className="leading-relaxed">
-            Use of VerityFlow is also subject to the terms of the underlying AI providers: Anthropic, OpenAI, Mistral AI, Google, and Perplexity. When using BYOK, you are directly bound by those providers' terms.
+            Use of VerityFlow is subject to the terms of the underlying AI providers: Anthropic, OpenAI, Mistral AI, Google, and Perplexity. VerityFlow manages all provider credentials on your behalf; by using the platform you agree to those providers' acceptable use policies.
           </p>
         </section>
 

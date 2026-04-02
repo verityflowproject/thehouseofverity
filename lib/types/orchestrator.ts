@@ -83,10 +83,25 @@ export interface OrchestratorTask {
   readonly maxRetries: number
   /** Links this task to a parent if it is a sub-task decomposition. */
   readonly parentTaskId?: string
+  /**
+   * IDs of tasks that must complete before this task can start.
+   * The orchestrator will execute tasks in dependency order, running
+   * all tasks within the same dependency level in parallel.
+   *
+   * Example: a review task depends on the primary task.
+   * Tasks with no dependsOn are in level 0 and run first.
+   */
+  readonly dependsOn?: string[]
   /** ISO deadline — the orchestrator will not dispatch after this time. */
   readonly expiresAt?: string
   /** ActiveTask snapshot at dispatch time (for context and timeout tracking). */
   readonly activeTask: ActiveTask
+  /**
+   * Human-readable explanation of why this model was selected for this task.
+   * e.g. 'Routed to Gemini (simple task — cost optimized)' or
+   *      'Routed to Claude (complex architecture task)'
+   */
+  readonly routingReason?: string
 }
 
 // ─── Model response ───────────────────────────────────────────────────────────

@@ -1,162 +1,128 @@
 /**
- * lib/models/Project.ts — Project Mongoose schema and model
+ * lib/models/Project.ts — Firestore Project helpers
  *
- * A Project is the top-level entity that groups a codebase, its sessions,
- * and its generated ProjectState. Each project belongs to one User.
+ * Collection: vf_projects  (document ID = project UUID)
  */
 
-import { Schema, model, models, type Document, type Model } from 'mongoose'
 import { v4 as uuidv4 } from 'uuid'
+import { db, FieldValue, toDate } from '@/lib/db/firestore'
 
-// ─── Status enum ─────────────────────────────────────────────────────────────
+const COL = 'vf_projects'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ProjectStatus =
-  | 'draft'      // Created, not yet built
-  | 'building'   // Orchestrator is actively working
-  | 'review'     // Awaiting human or council review
-  | 'complete'   // Last build succeeded
-  | 'error'      // Last build failed
+  | 'draft'
+  | 'building'
+  | 'review'
+  | 'complete'
+  | 'error'
+  | 'active'
 
-// ─── Document interface ───────────────────────────────────────────────────────
-
-export interface IProject extends Document {
-  readonly id:         string
-  userId:              string        // UUID ref → User.id
-  name:                string
-  description?:        string
-  techStack:           string[]
-  status:              ProjectStatus
-  activeSessionId?:    string        // UUID ref → current orchestrator session
-  totalSessions:       number
-  lastBuiltAt?:        Date
-  createdAt:           Date
-  updatedAt:           Date
-
-  // Helpers
-  isActive():          boolean
-  markBuilding(sessionId: string): Promise<IProject>
-  markComplete():      Promise<IProject>
-  markError():         Promise<IProject>
+export interface IProject {
+  readonly id:      string
+  userId:           string
+  name:             string
+  description?:     string
+  techStack:        string[]
+  status:           ProjectStatus
+  activeSessionId?: string
+  totalSessions:    number
+  lastBuiltAt?:     Date
+  createdAt:        Date
+  updatedAt:        Date
 }
 
-export interface IProjectModel extends Model<IProject> {
-  findByUser(userId: string): Promise<IProject[]>
+type ProjectUpdate = Partial<Omit<IProject, 'id'>> & {
+  $inc?: Partial<Record<'totalSessions', number>>
 }
 
-// ─── Schema definition ────────────────────────────────────────────────────────
+// ─── Internal helpers ─────────────────────────────────────────────────────────
 
-const ProjectSchema = new Schema<IProject, IProjectModel>(
-  {
-    id: {
-      type:      String,
-      default:   uuidv4,
-      unique:    true,
-      index:     true,
-      immutable: true,
-    },
+function fromDoc(data: FirebaseFirestore.DocumentData, id: string): IProject {
+  return {
+    ...data,
+    id,
+    createdAt:   toDate(data.createdAt),
+    updatedAt:   toDate(data.updatedAt),
+    lastBuiltAt: data.lastBuiltAt ? toDate(data.lastBuiltAt) : undefined,
+  } as IProject
+}
 
-    userId: {
-      type:     String,
-      required: [true, 'userId (User.id UUID) is required'],
-      index:    true,
-      // Not a Mongoose ObjectId ref — we use UUID strings.
-    },
+function buildUpdate(update: ProjectUpdate): Record<string, unknown> {
+  const { $inc, ...direct } = update
+  const result: Record<string, unknown> = { ...direct, updatedAt: new Date() }
+  if ($inc) {
+    for (const [key, delta] of Object.entries($inc) as [string, number][]) {
+      result[key] = FieldValue.increment(delta)
+    }
+  }
+  return result
+}
 
-    name: {
-      type:      String,
-      required:  [true, 'Project name is required'],
-      trim:      true,
-      maxlength: [120, 'Project name may not exceed 120 characters'],
-    },
+// ─── Public API ───────────────────────────────────────────────────────────────
 
-    description: {
-      type:      String,
-      trim:      true,
-      maxlength: [1000, 'Description may not exceed 1000 characters'],
-    },
-
-    techStack: {
-      type:    [String],
-      default: [],
-    },
-
-    status: {
-      type:    String,
-      enum:    ['draft', 'building', 'review', 'complete', 'error'] satisfies ProjectStatus[],
-      default: 'draft' satisfies ProjectStatus,
-      index:   true,
-    },
-
-    activeSessionId: {
-      type:   String,
-      sparse: true,
-    },
-
-    totalSessions: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    lastBuiltAt: {
-      type: Date,
-    },
+export const Project = {
+  async findOne(
+    query: Partial<Pick<IProject, 'id' | 'userId'>>,
+  ): Promise<IProject | null> {
+    if (query.id) {
+      const doc = await db.collection(COL).doc(query.id).get()
+      if (!doc.exists) return null
+      return fromDoc(doc.data()!, doc.id)
+    }
+    if (query.userId) {
+      const snap = await db.collection(COL)
+        .where('userId', '==', query.userId)
+        .limit(1).get()
+      if (snap.empty) return null
+      const doc = snap.docs[0]
+      return fromDoc(doc.data(), doc.id)
+    }
+    return null
   },
-  {
-    timestamps: true,
-    toJSON:   { virtuals: true, versionKey: false },
-    toObject: { virtuals: true, versionKey: false },
+
+  async find(
+    query: Partial<Pick<IProject, 'userId' | 'status'>>,
+  ): Promise<IProject[]> {
+    let ref: FirebaseFirestore.Query = db.collection(COL)
+    if (query.userId) ref = ref.where('userId', '==', query.userId)
+    if (query.status) ref = ref.where('status', '==', query.status)
+    const snap = await ref.orderBy('updatedAt', 'desc').get()
+    return snap.docs.map((d) => fromDoc(d.data(), d.id))
   },
-)
 
-// ─── Compound indexes ─────────────────────────────────────────────────────────
+  async create(data: Partial<IProject>): Promise<IProject> {
+    const now = new Date()
+    const id  = data.id ?? uuidv4()
+    const doc: Omit<IProject, 'id'> = {
+      userId:        data.userId ?? '',
+      name:          data.name ?? '',
+      description:   data.description,
+      techStack:     data.techStack ?? [],
+      status:        data.status ?? 'draft',
+      activeSessionId: data.activeSessionId,
+      totalSessions: data.totalSessions ?? 0,
+      lastBuiltAt:   data.lastBuiltAt,
+      createdAt:     data.createdAt ?? now,
+      updatedAt:     data.updatedAt ?? now,
+    }
+    await db.collection(COL).doc(id).set(doc)
+    return { id, ...doc }
+  },
 
-ProjectSchema.index({ userId: 1, createdAt: -1 })
-ProjectSchema.index({ userId: 1, status: 1 })
+  async updateOne(
+    query: Partial<Pick<IProject, 'id'>>,
+    update: ProjectUpdate,
+  ): Promise<void> {
+    if (!query.id) return
+    await db.collection(COL).doc(query.id).update(buildUpdate(update))
+  },
 
-// ─── Instance methods ─────────────────────────────────────────────────────────
-
-ProjectSchema.methods.isActive = function (this: IProject): boolean {
-  return this.status === 'building'
+  async deleteOne(query: Partial<Pick<IProject, 'id'>>): Promise<void> {
+    if (!query.id) return
+    await db.collection(COL).doc(query.id).delete()
+  },
 }
 
-ProjectSchema.methods.markBuilding = async function (
-  this: IProject,
-  sessionId: string,
-): Promise<IProject> {
-  this.status          = 'building'
-  this.activeSessionId = sessionId
-  this.totalSessions  += 1
-  return this.save() as unknown as Promise<IProject>
-}
-
-ProjectSchema.methods.markComplete = async function (
-  this: IProject,
-): Promise<IProject> {
-  this.status      = 'complete'
-  this.lastBuiltAt = new Date()
-  this.set('activeSessionId', undefined)
-  return this.save() as unknown as Promise<IProject>
-}
-
-ProjectSchema.methods.markError = async function (
-  this: IProject,
-): Promise<IProject> {
-  this.status = 'error'
-  this.set('activeSessionId', undefined)
-  return this.save() as unknown as Promise<IProject>
-}
-
-// ─── Static methods ───────────────────────────────────────────────────────────
-
-ProjectSchema.statics.findByUser = function (
-  userId: string,
-): Promise<IProject[]> {
-  return this.find({ userId }).sort({ createdAt: -1 })
-}
-
-// ─── Model export ─────────────────────────────────────────────────────────────
-
-export const Project: IProjectModel =
-  (models.Project as IProjectModel) ??
-  model<IProject, IProjectModel>('Project', ProjectSchema)
+export type IProjectModel = typeof Project

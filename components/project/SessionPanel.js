@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Loader2, Send, Copy, Check } from 'lucide-react'
 import ModelFeed from './ModelFeed'
+import SessionCostBreakdown from './SessionCostBreakdown'
 
 const MODEL_SEQUENCE = ['perplexity', 'claude', 'codestral']
 
@@ -11,6 +12,9 @@ export default function SessionPanel({ projectId }) {
   const [isRunning, setIsRunning] = useState(false)
   const [events, setEvents] = useState([])
   const [finalOutput, setFinalOutput] = useState(null)
+  const [costTransparency, setCostTransparency] = useState(null)
+  const [lastCreditsUsed, setLastCreditsUsed] = useState(null)
+  const [lastCreditsRemaining, setLastCreditsRemaining] = useState(null)
   const [copied, setCopied] = useState(false)
   
   const textareaRef = useRef(null)
@@ -55,6 +59,7 @@ export default function SessionPanel({ projectId }) {
       timestamp: new Date().toISOString()
     }])
     setFinalOutput(null)
+    setCostTransparency(null)
 
     // Start thinking animations
     startThinkingEvents()
@@ -146,6 +151,13 @@ export default function SessionPanel({ projectId }) {
       setEvents(prev => [...prev, ...newEvents])
       setFinalOutput(data.finalOutput || 'No output generated')
 
+      // Store cost transparency data for breakdown display
+      if (data.costTransparency) {
+        setCostTransparency(data.costTransparency)
+        setLastCreditsUsed(data.credits?.totalCreditsUsed)
+        setLastCreditsRemaining(data.credits?.remainingCredits)
+      }
+
     } catch (error) {
       console.error('Orchestrator error:', error)
       setEvents(prev => [...prev, {
@@ -234,6 +246,15 @@ export default function SessionPanel({ projectId }) {
       {/* Model Feed */}
       {(isRunning || events.length > 0) && (
         <ModelFeed events={events} isRunning={isRunning} />
+      )}
+
+      {/* Session Cost Breakdown */}
+      {costTransparency && !isRunning && (
+        <SessionCostBreakdown
+          costTransparency={costTransparency}
+          creditsUsed={lastCreditsUsed}
+          creditsRemaining={lastCreditsRemaining}
+        />
       )}
 
       {/* Final Output */}

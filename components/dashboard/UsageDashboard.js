@@ -190,8 +190,13 @@ export function UsageDashboard() {
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-semibold ${getTransactionColor(tx.amount)}`}>
-                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                    {tx.amount > 0 ? '+' : ''}{tx.amount} cr
                   </p>
+                  {tx.realCostUsd != null && tx.amount < 0 && (
+                    <p className="text-xs text-gray-600" title="Raw API cost before platform markup">
+                      ${tx.realCostUsd.toFixed(4)} raw
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500">
                     Balance: {tx.balanceAfter?.toLocaleString()}
                   </p>

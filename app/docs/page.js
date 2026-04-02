@@ -68,7 +68,7 @@ export default function DocsPage() {
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">Getting Started</h3>
               <p className="text-sm text-gray-400 mb-4">
-                Set up your account, add your API keys, and run your first Council session.
+                Create your account, buy credits, and run your first Council session — no API keys needed.
               </p>
               <span className="text-sm text-gray-600">→ Coming soon</span>
             </div>
@@ -90,9 +90,9 @@ export default function DocsPage() {
               <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
                 <Key className="w-6 h-6 text-indigo-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">BYOK Setup</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Credit System</h3>
               <p className="text-sm text-gray-400 mb-4">
-                Connect OpenRouter or individual provider keys. Zero markup, full control.
+                Understand how credits work, how costs are calculated, and how to read your usage dashboard.
               </p>
               <Link href="/faq" className="text-sm text-indigo-400 hover:text-indigo-300">
                 → View FAQ

@@ -1,209 +1,124 @@
 /**
- * lib/models/CreditTransaction.ts — Credit transaction ledger
+ * lib/models/CreditTransaction.ts — Firestore CreditTransaction helpers
  *
- * Records every credit movement: grants, purchases, deductions, refunds.
- * Powers the credits history UI and financial auditing.
+ * Collection: vf_credit_transactions  (document ID = transaction UUID)
  *
- * Relationships (UUID refs):
- *   userId    → User.id
- *   sessionId → orchestrator session UUID (for deductions)
- *   projectId → Project.id (for deductions)
+ * Indexes needed:
+ *   vf_credit_transactions: userId ASC + createdAt DESC
+ *   vf_credit_transactions: sessionId ASC + createdAt ASC
  */
 
-import { Schema, model, models, type Document, type Model } from 'mongoose'
 import { v4 as uuidv4 } from 'uuid'
+import { db, toDate } from '@/lib/db/firestore'
 
-// ─── Transaction types ─────────────────────────────────────────────────────────
+const COL = 'vf_credit_transactions'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CreditTransactionType =
-  | 'signup_grant'       // Free credits on signup
-  | 'subscription_grant' // Monthly credits from subscription
-  | 'topup_purchase'     // One-time credit pack purchase
-  | 'session_deduction'  // Credits used during a council session
-  | 'refund'             // Credits refunded (failed session, etc.)
-  | 'admin_adjustment'   // Manual adjustment by admin
+  | 'signup_grant'
+  | 'subscription_grant'
+  | 'topup_purchase'
+  | 'session_deduction'
+  | 'refund'
+  | 'admin_adjustment'
 
-// ─── Document interface ─────────────────────────────────────────────────────────
-
-export interface ICreditTransaction extends Document {
-  readonly id: string
-  userId: string
-  type: CreditTransactionType
-  amount: number                   // Positive for grants, negative for deductions
-  balanceAfter: number             // User's credit balance after this transaction
-  description: string
-  /** For session deductions */
-  sessionId?: string
-  projectId?: string
-  /** Model used (for session deductions) */
-  modelUsed?: string
-  /** Token counts (for session deductions) */
-  inputTokens?: number
-  outputTokens?: number
-  /** Real USD cost (before margin) */
-  realCostUsd?: number
-  /** Stripe payment intent ID (for purchases) */
+export interface ICreditTransaction {
+  readonly id:     string
+  userId:          string
+  type:            CreditTransactionType
+  amount:          number
+  balanceAfter:    number
+  description:     string
+  sessionId?:      string
+  projectId?:      string
+  modelUsed?:      string
+  inputTokens?:    number
+  outputTokens?:   number
+  realCostUsd?:    number
   stripePaymentIntentId?: string
-  /** Credit pack ID (for purchases) */
-  creditPackId?: string
-  createdAt: Date
-  updatedAt: Date
+  creditPackId?:   string
+  createdAt:       Date
+  updatedAt:       Date
 }
 
-export interface ICreditTransactionModel extends Model<ICreditTransaction> {
-  /** Get paginated transaction history for a user. */
-  getHistory(
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function fromDoc(data: FirebaseFirestore.DocumentData, id: string): ICreditTransaction {
+  return {
+    ...data,
+    id,
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
+  } as ICreditTransaction
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export const CreditTransaction = {
+  async create(data: Partial<ICreditTransaction>): Promise<ICreditTransaction> {
+    const now = new Date()
+    const id  = data.id ?? uuidv4()
+    const doc = {
+      ...data,
+      id,
+      createdAt: data.createdAt ?? now,
+      updatedAt: data.updatedAt ?? now,
+    }
+    await db.collection(COL).doc(id).set(doc)
+    return fromDoc(doc, id)
+  },
+
+  async find(
+    query: Partial<Pick<ICreditTransaction, 'userId' | 'type' | 'sessionId'>>,
+    opts: { limit?: number; offset?: number; sort?: 'asc' | 'desc' } = {},
+  ): Promise<ICreditTransaction[]> {
+    let ref: FirebaseFirestore.Query = db.collection(COL)
+    if (query.userId)    ref = ref.where('userId',    '==', query.userId)
+    if (query.type)      ref = ref.where('type',      '==', query.type)
+    if (query.sessionId) ref = ref.where('sessionId', '==', query.sessionId)
+    ref = ref.orderBy('createdAt', opts.sort ?? 'desc')
+    if (opts.offset) ref = ref.offset(opts.offset)
+    if (opts.limit)  ref = ref.limit(opts.limit)
+    const snap = await ref.get()
+    return snap.docs.map((d) => fromDoc(d.data(), d.id))
+  },
+
+  async countDocuments(
+    query: Partial<Pick<ICreditTransaction, 'userId' | 'type'>>,
+  ): Promise<number> {
+    let ref: FirebaseFirestore.Query = db.collection(COL)
+    if (query.userId) ref = ref.where('userId', '==', query.userId)
+    if (query.type)   ref = ref.where('type',   '==', query.type)
+    const snap = await ref.count().get()
+    return snap.data().count
+  },
+
+  async getHistory(
     userId: string,
-    limit?: number,
-    offset?: number,
-  ): Promise<ICreditTransaction[]>
-
-  /** Get total credits used today for a user. */
-  getDailyUsage(userId: string): Promise<number>
-
-  /** Get session breakdown (all deductions for a session). */
-  getSessionBreakdown(sessionId: string): Promise<ICreditTransaction[]>
-}
-
-// ─── Schema ──────────────────────────────────────────────────────────────────────
-
-const CreditTransactionSchema = new Schema<ICreditTransaction, ICreditTransactionModel>(
-  {
-    id: {
-      type: String,
-      default: uuidv4,
-      unique: true,
-      index: true,
-      immutable: true,
-    },
-    userId: {
-      type: String,
-      required: [true, 'userId is required'],
-      index: true,
-    },
-    type: {
-      type: String,
-      enum: [
-        'signup_grant',
-        'subscription_grant',
-        'topup_purchase',
-        'session_deduction',
-        'refund',
-        'admin_adjustment',
-      ],
-      required: [true, 'type is required'],
-      index: true,
-    },
-    amount: {
-      type: Number,
-      required: [true, 'amount is required'],
-    },
-    balanceAfter: {
-      type: Number,
-      required: [true, 'balanceAfter is required'],
-      min: 0,
-    },
-    description: {
-      type: String,
-      required: [true, 'description is required'],
-      maxlength: 500,
-    },
-    sessionId: {
-      type: String,
-      sparse: true,
-      index: true,
-    },
-    projectId: {
-      type: String,
-      sparse: true,
-    },
-    modelUsed: {
-      type: String,
-    },
-    inputTokens: {
-      type: Number,
-      min: 0,
-    },
-    outputTokens: {
-      type: Number,
-      min: 0,
-    },
-    realCostUsd: {
-      type: Number,
-      min: 0,
-    },
-    stripePaymentIntentId: {
-      type: String,
-      sparse: true,
-    },
-    creditPackId: {
-      type: String,
-    },
+    limit:  number = 50,
+    offset: number = 0,
+  ): Promise<ICreditTransaction[]> {
+    return CreditTransaction.find({ userId }, { limit, offset, sort: 'desc' })
   },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true, versionKey: false },
-    toObject: { virtuals: true, versionKey: false },
+
+  /** Sum of absolute credit amounts for session deductions today. */
+  async getDailyUsage(userId: string): Promise<number> {
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const snap = await db.collection(COL)
+      .where('userId', '==', userId)
+      .where('type', '==', 'session_deduction')
+      .where('createdAt', '>=', startOfDay)
+      .get()
+
+    return snap.docs.reduce((sum, doc) => sum + Math.abs(doc.data().amount ?? 0), 0)
   },
-)
 
-// ─── Indexes ──────────────────────────────────────────────────────────────────
-
-CreditTransactionSchema.index({ userId: 1, createdAt: -1 })
-CreditTransactionSchema.index({ userId: 1, type: 1, createdAt: -1 })
-CreditTransactionSchema.index({ sessionId: 1, createdAt: 1 })
-// TTL: auto-delete after 2 years
-CreditTransactionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 730 })
-
-// ─── Static methods ──────────────────────────────────────────────────────────
-
-CreditTransactionSchema.statics.getHistory = function (
-  userId: string,
-  limit: number = 50,
-  offset: number = 0,
-): Promise<ICreditTransaction[]> {
-  return this.find({ userId })
-    .sort({ createdAt: -1 })
-    .skip(offset)
-    .limit(limit)
-    .lean()
+  async getSessionBreakdown(sessionId: string): Promise<ICreditTransaction[]> {
+    return CreditTransaction.find({ sessionId, type: 'session_deduction' }, { sort: 'asc' })
+  },
 }
 
-CreditTransactionSchema.statics.getDailyUsage = async function (
-  userId: string,
-): Promise<number> {
-  const startOfDay = new Date()
-  startOfDay.setHours(0, 0, 0, 0)
-
-  const [result] = await this.aggregate([
-    {
-      $match: {
-        userId,
-        type: 'session_deduction',
-        createdAt: { $gte: startOfDay },
-      },
-    },
-    {
-      $group: {
-        _id: null,
-        totalUsed: { $sum: { $abs: '$amount' } },
-      },
-    },
-  ])
-
-  return result?.totalUsed ?? 0
-}
-
-CreditTransactionSchema.statics.getSessionBreakdown = function (
-  sessionId: string,
-): Promise<ICreditTransaction[]> {
-  return this.find({ sessionId, type: 'session_deduction' })
-    .sort({ createdAt: 1 })
-    .lean()
-}
-
-// ─── Model export ─────────────────────────────────────────────────────────────
-
-export const CreditTransaction: ICreditTransactionModel =
-  (models.CreditTransaction as ICreditTransactionModel) ??
-  model<ICreditTransaction, ICreditTransactionModel>('CreditTransaction', CreditTransactionSchema)
+export type ICreditTransactionModel = typeof CreditTransaction

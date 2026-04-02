@@ -12,19 +12,19 @@ import { v4 as uuidv4 } from 'uuid'
 import { withRetry } from '@/lib/utils/retry'
 import { ModelAdapterError } from '@/lib/utils/errors'
 import { estimateTokens } from '@/lib/utils/token-counter'
+import { resolveCredentials } from './credentials'
 import type {
   OrchestratorTask,
   ModelResponse,
   TokenUsage,
 } from '@/lib/types'
 
-// ─── Env guard ────────────────────────────────────────────────────────────────
+// ─── Client factory ───────────────────────────────────────────────────────────
 
-if (!process.env.GOOGLE_AI_API_KEY) {
-  console.warn('[VerityFlow] GOOGLE_AI_API_KEY not set — Gemini adapter will fail at runtime')
+function getClient(): GoogleGenerativeAI {
+  const { apiKey } = resolveCredentials('gemini')
+  return new GoogleGenerativeAI(apiKey || 'missing-key')
 }
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? 'missing-key')
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,7 @@ export async function callGemini(
 async function executeGemini(task: OrchestratorTask): Promise<ModelResponse> {
   const startTime = Date.now()
 
+  const genAI = getClient()
   const model = genAI.getGenerativeModel({ 
     model: MODEL_NAME,
     systemInstruction: task.systemPrompt ?? SYSTEM_PROMPT,

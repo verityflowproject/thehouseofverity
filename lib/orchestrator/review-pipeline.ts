@@ -17,7 +17,6 @@
 import { v4 as uuidv4 } from 'uuid'
 
 import { callClaude, callGPT } from '@/lib/adapters'
-import { connectMongoose } from '@/lib/db/mongoose'
 import { ReviewLog } from '@/lib/models/ReviewLog'
 import type {
   ModelRole,
@@ -250,8 +249,6 @@ async function persistReviewLog(
   reviewResult: ReviewResult,
   tokensUsed: TokenUsage,
 ): Promise<void> {
-  await connectMongoose()
-
   await ReviewLog.create({
     id: uuidv4(),
     projectId,

@@ -2,7 +2,6 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { auth } from '@/lib/auth'
-import { connectMongoose } from '@/lib/db/mongoose'
 import { Project } from '@/lib/models/Project'
 import SessionPanel from '@/components/project/SessionPanel'
 import ReviewLog from '@/components/project/ReviewLog'
@@ -21,12 +20,7 @@ export default async function ProjectDetailPage({ params }) {
     redirect('/login')
   }
 
-  await connectMongoose()
-  
-  const project = await Project.findOne({
-    _id: params.id,
-    userId: session.user.id
-  }).lean()
+  const project = await Project.findOne({ id: params.id, userId: session.user.id })
 
   if (!project) {
     notFound()

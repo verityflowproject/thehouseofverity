@@ -2,17 +2,17 @@
  * lib/utils/project-state.ts — ProjectState read/write/merge layer
  *
  * Architecture:
- *   - MongoDB: durable store via the ProjectState Mongoose model
+ *   - Firestore: durable store via the ProjectState model helper
+ *     Collection: vf_project_states  (document ID = projectId, 1:1 with Project)
  *
  * Optimistic concurrency:
- *   - The `version` field (integer) on the ProjectState document acts as
- *     an optimistic lock. mergeProjectState accepts an expected version and
- *     throws VersionConflictError if the current version differs.
+ *   - The `version` field (integer) acts as an optimistic lock.
+ *   - mergeProjectState accepts an expected version and throws VersionConflictError
+ *     if the current version differs.
  */
 
 import { v4 as uuidv4 } from 'uuid'
 
-import { connectMongoose } from '@/lib/db/mongoose'
 import { ProjectState as ProjectStateModel } from '@/lib/models/ProjectState'
 import { ProjectStateError, VersionConflictError } from './errors'
 import { estimateObjectTokens, truncateToFitBudget } from './token-counter'
@@ -24,26 +24,16 @@ import type {
   TaskType,
 } from '@/lib/types'
 
-// ─── Internal helpers ──────────────────────────────────────────────────────────
+// ─── Internal helper ──────────────────────────────────────────────────────────
 
-async function ensureMongoose(): Promise<void> {
-  await connectMongoose()
-}
-
-/** Convert a Mongoose document to a plain ProjectState object. */
 function toPlain(doc: Record<string, unknown>): ProjectState {
   return doc as unknown as ProjectState
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-/**
- * Get a project's state from MongoDB.
- * Throws ProjectStateError if the document doesn't exist.
- */
 export async function getProjectState(projectId: string): Promise<ProjectState> {
-  await ensureMongoose()
-  const doc = await ProjectStateModel.findOne({ projectId }).lean()
+  const doc = await ProjectStateModel.findOne({ projectId })
 
   if (!doc) {
     throw new ProjectStateError(`ProjectState not found for project ${projectId}`, {
@@ -55,15 +45,9 @@ export async function getProjectState(projectId: string): Promise<ProjectState> 
   return toPlain(doc as unknown as Record<string, unknown>)
 }
 
-// ─── Write ─────────────────────────────────────────────────────────────────────
+// ─── Write ────────────────────────────────────────────────────────────────────
 
-/**
- * Persist a full ProjectState.
- * Writes to MongoDB and bumps the version counter.
- */
 export async function setProjectState(state: ProjectState): Promise<ProjectState> {
-  await ensureMongoose()
-
   const newVersion = (state.version ?? 0) + 1
   const updatedAt  = new Date().toISOString()
 
@@ -76,26 +60,27 @@ export async function setProjectState(state: ProjectState): Promise<ProjectState
         updatedAt,
       },
     },
-    { new: true, upsert: true, lean: true },
-  ) as unknown as Record<string, unknown>
+    { upsert: true },
+  )
 
-  return toPlain(updated)
+  if (!updated) {
+    throw new ProjectStateError(
+      `Failed to set ProjectState for project ${state.projectId}`,
+      { projectId: state.projectId, code: 'UPDATE_FAILED' },
+    )
+  }
+
+  return toPlain(updated as unknown as Record<string, unknown>)
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-/**
- * Create an empty ProjectState for a brand-new project.
- * Idempotent: if a state already exists for projectId, returns the existing one.
- */
 export async function initProjectState(projectId: string): Promise<ProjectState> {
-  await ensureMongoose()
-
-  const existing = await ProjectStateModel.findOne({ projectId }).lean()
+  const existing = await ProjectStateModel.findOne({ projectId })
   if (existing) return toPlain(existing as unknown as Record<string, unknown>)
 
-  const now  = new Date().toISOString()
-  const id   = uuidv4()
+  const now = new Date().toISOString()
+  const id  = uuidv4()
 
   const emptyState = {
     id,
@@ -141,12 +126,12 @@ export async function initProjectState(projectId: string): Promise<ProjectState>
       lastUpdatedBy: 'claude' as ModelRole,
     },
     dependencies: {
-      packages:     [],
-      devPackages:  [],
-      peerDeps:     [],
-      conflicts:    [],
-      lastVerifiedAt:   now,
-      lastVerifiedBy:   'perplexity' as ModelRole,
+      packages:       [],
+      devPackages:    [],
+      peerDeps:       [],
+      conflicts:      [],
+      lastVerifiedAt: now,
+      lastVerifiedBy: 'perplexity' as ModelRole,
     },
     openQuestions: [],
     reviewLog: [],
@@ -160,31 +145,17 @@ export async function initProjectState(projectId: string): Promise<ProjectState>
   }
 
   const doc = await ProjectStateModel.create(emptyState)
-  return toPlain(doc.toObject() as unknown as Record<string, unknown>)
+  return toPlain(doc as unknown as Record<string, unknown>)
 }
 
 // ─── Merge (Optimistic Lock) ──────────────────────────────────────────────────
 
-/**
- * Merge partial updates into an existing ProjectState.
- *
- * Optimistic concurrency control via the version field:
- * - If expectedVersion is provided and doesn't match the DB version, throws VersionConflictError.
- * - Otherwise, increments the version and applies the patch.
- *
- * @param projectId      - UUID of the project.
- * @param patch          - Partial ProjectState to merge (shallow merge at top level).
- * @param expectedVersion - Optional version check for concurrency control.
- * @returns The updated ProjectState.
- */
 export async function mergeProjectState(
-  projectId:       string,
-  patch:           Partial<ProjectState>,
+  projectId:        string,
+  patch:            Partial<ProjectState>,
   expectedVersion?: number,
 ): Promise<ProjectState> {
-  await ensureMongoose()
-
-  const current = await ProjectStateModel.findOne({ projectId }).lean()
+  const current = await ProjectStateModel.findOne({ projectId })
 
   if (!current) {
     throw new ProjectStateError(`ProjectState not found for project ${projectId}`, {
@@ -193,30 +164,22 @@ export async function mergeProjectState(
     })
   }
 
-  const currentVersion = (current.version as number) ?? 0
+  const currentVersion = current.version ?? 0
 
   if (expectedVersion !== undefined && currentVersion !== expectedVersion) {
-    throw new VersionConflictError({
-      projectId,
-      expectedVersion,
-      actualVersion: currentVersion,
-    })
+    throw new VersionConflictError({ projectId, expectedVersion, actualVersion: currentVersion })
   }
-
-  const newVersion = currentVersion + 1
-  const updatedAt  = new Date().toISOString()
 
   const updated = await ProjectStateModel.findOneAndUpdate(
     { projectId },
     {
       $set: {
         ...patch,
-        version:   newVersion,
-        updatedAt,
+        version:   currentVersion + 1,
+        updatedAt: new Date().toISOString(),
       },
     },
-    { new: true, lean: true },
-  ) as unknown as Record<string, unknown>
+  )
 
   if (!updated) {
     throw new ProjectStateError(
@@ -225,121 +188,89 @@ export async function mergeProjectState(
     )
   }
 
-  return toPlain(updated)
+  return toPlain(updated as unknown as Record<string, unknown>)
 }
 
 // ─── Append helpers ────────────────────────────────────────────────────────────
 
-/**
- * Append a review log entry.
- * Uses MongoDB's $push to atomically append without reading the full array.
- */
 export async function appendReviewLog(
   projectId: string,
   entry:     ReviewLogEntry,
 ): Promise<void> {
-  await ensureMongoose()
-
   await ProjectStateModel.findOneAndUpdate(
     { projectId },
     {
-      $push: { reviewLog: entry },
+      $push: { reviewLog: entry as unknown as Record<string, unknown> },
       $inc:  { version: 1 },
-      $set:  { updatedAt: new Date().toISOString() },
     },
   )
 }
 
-/**
- * Append an open question.
- */
 export async function appendOpenQuestion(
   projectId: string,
   question:  OpenQuestion,
 ): Promise<void> {
-  await ensureMongoose()
-
   await ProjectStateModel.findOneAndUpdate(
     { projectId },
     {
-      $push: { openQuestions: question },
+      $push: { openQuestions: question as unknown as Record<string, unknown> },
       $inc:  { version: 1 },
-      $set:  { updatedAt: new Date().toISOString() },
     },
   )
 }
 
-/**
- * Remove a resolved question by its ID.
- */
 export async function removeOpenQuestion(
   projectId:  string,
   questionId: string,
 ): Promise<void> {
-  await ensureMongoose()
-
   await ProjectStateModel.findOneAndUpdate(
     { projectId },
     {
       $pull: { openQuestions: { id: questionId } },
       $inc:  { version: 1 },
-      $set:  { updatedAt: new Date().toISOString() },
     },
   )
 }
 
 // ─── Context Budget & Truncation ───────────────────────────────────────────────
 
-/**
- * Retrieve a ProjectState and truncate it to fit within a target token budget.
- *
- * Strategy:
- * 1. Always keep: architecture.techStack, conventions, currentTask
- * 2. Truncate large fields:
- *    - architecture.fileTree
- *    - reviewLog
- *    - openQuestions
- *
- * @param projectId    - UUID of the project.
- * @param targetTokens - Target token count (e.g., 8000 for a 16K context).
- * @returns A truncated ProjectState that fits within the budget.
- */
 export async function getProjectStateWithBudget(
   projectId:    string,
   targetTokens: number,
 ): Promise<ProjectState> {
   const full = await getProjectState(projectId)
-
-  // Estimate current token usage
   const currentTokens = estimateObjectTokens(full)
 
-  // If already within budget, return as-is
-  if (currentTokens <= targetTokens) {
-    return full
-  }
-
-  // Simple truncation: reduce fileTree, reviewLog, and openQuestions proportionally
-  const fileTreeJson = JSON.stringify(full.architecture.fileTree, null, 2)
-  const reviewLogJson = JSON.stringify(full.reviewLog, null, 2)
-  const openQuestionsJson = JSON.stringify(full.openQuestions, null, 2)
+  if (currentTokens <= targetTokens) return full
 
   const truncated: ProjectState = {
     ...full,
     architecture: {
       ...full.architecture,
-      fileTree: JSON.parse(truncateToFitBudget(fileTreeJson, Math.floor(targetTokens * 0.5))),
+      fileTree: JSON.parse(
+        truncateToFitBudget(
+          JSON.stringify(full.architecture.fileTree, null, 2),
+          Math.floor(targetTokens * 0.5),
+        ),
+      ),
     },
-    reviewLog: JSON.parse(truncateToFitBudget(reviewLogJson, Math.floor(targetTokens * 0.3))),
-    openQuestions: JSON.parse(truncateToFitBudget(openQuestionsJson, Math.floor(targetTokens * 0.2))),
+    reviewLog: JSON.parse(
+      truncateToFitBudget(
+        JSON.stringify(full.reviewLog, null, 2),
+        Math.floor(targetTokens * 0.3),
+      ),
+    ),
+    openQuestions: JSON.parse(
+      truncateToFitBudget(
+        JSON.stringify(full.openQuestions, null, 2),
+        Math.floor(targetTokens * 0.2),
+      ),
+    ),
   }
 
   return truncated
 }
 
-/**
- * Delete a ProjectState (for cleanup or testing).
- */
 export async function deleteProjectState(projectId: string): Promise<void> {
-  await ensureMongoose()
   await ProjectStateModel.deleteOne({ projectId })
 }

@@ -17,7 +17,7 @@ const PLANS = [
       '~3 council sessions/day',
       'Hallucination firewall',
       'Full review log',
-      'BYOK supported'
+      'No API keys needed'
     ],
     cta: 'Current Plan',
     popular: false
@@ -35,7 +35,7 @@ const PLANS = [
       '~10 council sessions/day',
       'Extended session history',
       'Email support',
-      'BYOK supported'
+      'All models managed, zero setup'
     ],
     cta: 'Upgrade to Starter',
     popular: false
@@ -54,7 +54,7 @@ const PLANS = [
       'Priority model routing',
       'Usage analytics dashboard',
       'Priority support',
-      'BYOK supported'
+      'Transparent cost breakdowns'
     ],
     cta: 'Upgrade to Pro',
     popular: true
@@ -73,7 +73,7 @@ const PLANS = [
       'Custom model routing rules',
       'Team collaboration',
       'Dedicated support & SLA',
-      'BYOK supported'
+      'Full unit economics reporting'
     ],
     cta: 'Upgrade to Studio',
     popular: false
@@ -119,7 +119,7 @@ export default async function PricingPage() {
           Scale your council
         </h1>
         <p className="text-xl text-gray-400">
-          Choose the plan that fits your needs. All plans include the full AI council and BYOK support.
+          Choose the plan that fits your needs. All plans include the full AI council — no API keys needed.
         </p>
       </div>
 

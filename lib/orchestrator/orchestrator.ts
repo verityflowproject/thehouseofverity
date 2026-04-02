@@ -25,6 +25,7 @@ import { checkHallucinationFirewall } from './hallucination-firewall'
 import { routeToModel } from '@/lib/adapters'
 import { runReviewPipeline, type PipelineResult } from './review-pipeline'
 import { runBatchArbitration, type BatchArbitrationResult } from './arbitration'
+import { calculateCreditsUsed, SESSION_COST_CAP_CREDITS } from '@/lib/credit-costs'
 import type {
   OrchestratorTask,
   ModelResponse,
@@ -46,10 +47,12 @@ export interface OrchestratorResult {
   updatedState: ProjectState
   /** Flags for downstream processing. */
   flags: {
-    hadFirewallBlocks: boolean
-    hadReviewFailures: boolean
-    hadArbitration: boolean
-    hadAdapterErrors: boolean
+    hadFirewallBlocks:  boolean
+    hadReviewFailures:  boolean
+    hadArbitration:     boolean
+    hadAdapterErrors:   boolean
+    /** True if execution was halted because running credit cost exceeded SESSION_COST_CAP_CREDITS. */
+    sessionCapReached:  boolean
   }
   /** Token usage summary. */
   tokenUsage: {
@@ -228,21 +231,97 @@ export async function runOrchestrator(
 
   // 3. Initialize state tracking
   const flags = {
-    hadFirewallBlocks: false,
-    hadReviewFailures: false,
-    hadArbitration: false,
-    hadAdapterErrors: false,
+    hadFirewallBlocks:  false,
+    hadReviewFailures:  false,
+    hadArbitration:     false,
+    hadAdapterErrors:   false,
+    sessionCapReached:  false,
   }
 
   const researchFindings = new Map<string, string>()
   const responses: ModelResponse[] = []
 
-  // 4. Execute tasks sequentially
-  for (const task of taskQueue) {
-    console.log(`[Orchestrator] Executing task ${task.id} (${task.taskType}, ${task.model})`)
-    const response = await executeTask(task, projectState, researchFindings, flags)
-    responses.push(response)
+  // 4. Execute tasks in dependency order, running independent tasks in parallel
+  let runningCreditCost = 0
+
+  // Build dependency levels: tasks with no unresolved deps execute together
+  const completed   = new Set<string>()
+  const taskMap     = new Map(taskQueue.map((t) => [t.id, t]))
+  const taskResults = new Map<string, ModelResponse>()
+  let remaining     = [...taskQueue]
+
+  while (remaining.length > 0 && !flags.sessionCapReached) {
+    // Find tasks whose dependencies are all satisfied
+    const ready = remaining.filter((task) => {
+      const deps = task.dependsOn ?? []
+      return deps.every((depId) => completed.has(depId))
+    })
+
+    if (ready.length === 0) {
+      // Cycle or unresolvable — fall back to sequential
+      console.warn('[Orchestrator] Could not resolve task dependencies, executing remaining tasks sequentially')
+      for (const task of remaining) {
+        const response = await executeTask(task, projectState, researchFindings, flags)
+        responses.push(response)
+        taskResults.set(task.id, response)
+        completed.add(task.id)
+      }
+      break
+    }
+
+    if (ready.length === 1) {
+      // Single task — execute directly
+      const task = ready[0]
+      console.log(`[Orchestrator] Executing task ${task.id} (${task.taskType}, ${task.model})${task.routingReason ? ` — ${task.routingReason}` : ''}`)
+      const response = await executeTask(task, projectState, researchFindings, flags)
+      responses.push(response)
+      taskResults.set(task.id, response)
+      completed.add(task.id)
+
+      const taskCredits = calculateCreditsUsed(
+        response.model,
+        response.tokensUsed.promptTokens,
+        response.tokensUsed.completionTokens,
+      )
+      runningCreditCost += taskCredits
+    } else {
+      // Multiple independent tasks — execute in parallel
+      console.log(`[Orchestrator] Executing ${ready.length} independent tasks in parallel`)
+      const batchResults = await Promise.all(
+        ready.map((task) => {
+          console.log(`[Orchestrator] Parallel: task ${task.id} (${task.taskType}, ${task.model})`)
+          return executeTask(task, projectState, researchFindings, flags)
+        }),
+      )
+
+      for (let i = 0; i < ready.length; i++) {
+        const task     = ready[i]
+        const response = batchResults[i]
+        responses.push(response)
+        taskResults.set(task.id, response)
+        completed.add(task.id)
+
+        const taskCredits = calculateCreditsUsed(
+          response.model,
+          response.tokensUsed.promptTokens,
+          response.tokensUsed.completionTokens,
+        )
+        runningCreditCost += taskCredits
+      }
+    }
+
+    // Remove completed tasks from remaining
+    const readyIds = new Set(ready.map((t) => t.id))
+    remaining = remaining.filter((t) => !readyIds.has(t.id))
+
+    // Enforce session cost cap
+    if (runningCreditCost > SESSION_COST_CAP_CREDITS) {
+      console.warn(`[Orchestrator] Session cost cap (${SESSION_COST_CAP_CREDITS} credits) reached at ${runningCreditCost} — stopping execution`)
+      flags.sessionCapReached = true
+    }
   }
+
+  void taskMap // used for dependency resolution above
 
   // 5. Separate research responses from reviewable responses
   const reviewableResponses = responses.filter(

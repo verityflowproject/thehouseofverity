@@ -11,8 +11,9 @@
 import { v4 as uuidv4 } from 'uuid'
 
 import { classifyTask } from './task-classifier'
-import { getModelAssignment } from './model-assignment'
+import { getModelAssignment, getSmartModelAssignment } from './model-assignment'
 import { detectHallucinationTriggers, extractExternalReferences } from './hallucination-detector'
+import { classifyTaskComplexity } from '@/lib/credit-costs'
 import type {
   OrchestratorTask,
   ProjectState,
@@ -247,12 +248,19 @@ export function buildTaskQueue(
   const queue: OrchestratorTask[] = []
   const now = new Date().toISOString()
 
-  // 1. Classify task type
+  // 1. Classify task type and complexity
   const taskType = options.taskTypeOverride ?? classifyTask(userPrompt)
+  const complexity = classifyTaskComplexity(userPrompt)
 
-  // 2. Get model assignment
-  const assignment = getModelAssignment(taskType)
+  // 2. Get cost-optimized model assignment based on complexity
+  const assignment = options.modelOverride
+    ? getModelAssignment(taskType)
+    : getSmartModelAssignment(taskType, complexity)
   const primaryModel = options.modelOverride ?? assignment.primary
+
+  const routingReason = options.modelOverride
+    ? `Manually overridden to ${options.modelOverride}`
+    : `Routed to ${primaryModel} (${complexity} ${taskType} task — cost optimized)`
 
   // 3. Detect hallucination triggers
   const hasExternalRefs = detectHallucinationTriggers(userPrompt)
@@ -276,6 +284,7 @@ export function buildTaskQueue(
       createdAt: now,
       retryCount: 0,
       maxRetries: options.maxRetries ?? 3,
+      routingReason: 'Perplexity Sonar Pro — hallucination firewall dependency verification',
       activeTask: projectState.activeTask ?? {
         id: uuidv4(),
         scope: 'Research task',
@@ -291,7 +300,8 @@ export function buildTaskQueue(
     queue.push(researchTask)
   }
 
-  // 5. Add primary task
+  // 5. Add primary task (depends on research if present)
+  const researchTaskId = needsResearch ? queue[queue.length - 1]?.id : undefined
   const primaryTask: OrchestratorTask = {
     id: uuidv4(),
     projectId,
@@ -304,6 +314,8 @@ export function buildTaskQueue(
     createdAt: now,
     retryCount: 0,
     maxRetries: options.maxRetries ?? 3,
+    routingReason,
+    dependsOn: researchTaskId ? [researchTaskId] : undefined,
     activeTask: projectState.activeTask ?? {
       id: uuidv4(),
       scope: userPrompt,
@@ -335,6 +347,8 @@ export function buildTaskQueue(
       retryCount: 0,
       maxRetries: options.maxRetries ?? 2,
       parentTaskId: primaryTask.id,
+      dependsOn: [primaryTask.id],
+      routingReason: `${assignment.reviewer} — cross-model review of ${primaryModel} output`,
       activeTask: projectState.activeTask ?? {
         id: uuidv4(),
         scope: `Review: ${userPrompt}`,

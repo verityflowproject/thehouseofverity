@@ -11,18 +11,13 @@ import { v4 as uuidv4 } from 'uuid'
 import { withRetry } from '@/lib/utils/retry'
 import { ModelAdapterError } from '@/lib/utils/errors'
 import { estimateTokens } from '@/lib/utils/token-counter'
+import { resolveCredentials } from './credentials'
 import type {
   OrchestratorTask,
   ModelResponse,
   FlaggedIssue,
   TokenUsage,
 } from '@/lib/types'
-
-// ─── Env guard ────────────────────────────────────────────────────────────────
-
-if (!process.env.PERPLEXITY_API_KEY) {
-  console.warn('[VerityFlow] PERPLEXITY_API_KEY not set — Perplexity adapter will fail at runtime')
-}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -126,12 +121,13 @@ async function executePerplexity(task: OrchestratorTask): Promise<ModelResponse>
   const contextJson = JSON.stringify(task.contextSlice.projectState, null, 2)
   const userMessage = `${task.prompt}\n\n### Project Context\n\`\`\`json\n${contextJson}\n\`\`\``
 
-  // Call Perplexity API
+  // Resolve platform credentials and call Perplexity API
+  const { apiKey } = resolveCredentials('perplexity')
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: MODEL_NAME,

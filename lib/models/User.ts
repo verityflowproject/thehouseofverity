@@ -1,70 +1,17 @@
 /**
- * lib/models/User.ts — User Mongoose schema and model
+ * lib/models/User.ts — Firestore User helpers
  *
- * Represents a VerityFlow account. The `id` field is a UUID v4 string
- * (not MongoDB ObjectId) for consistency with the type system.
- *
- * Stripe fields are nullable because free-tier users have no subscription.
- *
- * Credit system fields:
- *   - credits: Current credit balance
- *   - dailyCreditsUsed: Credits consumed today (reset at midnight)
- *   - dailyCreditsResetAt: When the daily counter was last reset
+ * Collection: vf_users  (document ID = user UUID)
+ * Secondary lookups: email, stripeCustomerId
  */
 
-import { Schema, model, models, type Document, type Model } from 'mongoose'
 import { v4 as uuidv4 } from 'uuid'
+import { db, FieldValue, toDate } from '@/lib/db/firestore'
 import type { Plan } from '@/lib/types'
 
-// ─── Document interface ───────────────────────────────────────────────────────
+const COL = 'vf_users'
 
-export interface IUser extends Document {
-  readonly id:                    string
-  email:                          string
-  name?:                          string
-  image?:                         string
-  plan:                           Plan
-
-  // ─── Credit system fields ────────────
-  credits:                        number
-  dailyCreditsUsed:               number
-  dailyCreditsResetAt:            Date
-
-  // ─── Legacy model calls (kept for backward compat) ────────────
-  modelCallsUsed:                 number
-  modelCallsLimit:                number
-
-  // ─── Stripe ────────────
-  stripeCustomerId?:              string
-  stripeSubscriptionId?:          string
-
-  // ─── Billing cycle ────────────
-  billingCycleStart:              Date
-  billingCycleEnd:                Date
-
-  // ─── Auth ────────────
-  emailVerified?:                 boolean
-  provider?:                      'github' | 'google' | 'email'
-  providerAccountId?:             string
-
-  // ─── Relations ────────────
-  projectIds:                     string[]
-
-  // ─── Timestamps ────────────
-  createdAt:                      Date
-  updatedAt:                      Date
-
-  // Instance helpers
-  hasCallsRemaining():            boolean
-  hasCreditsRemaining():          boolean
-  incrementCallUsage():           Promise<IUser>
-}
-
-export interface IUserModel extends Model<IUser> {
-  findByEmail(email: string): Promise<IUser | null>
-}
-
-// ─── Plan → default limits map ───────────────────────────────────────────
+// ─── Plan → default limits ────────────────────────────────────────────────────
 
 const PLAN_LIMITS: Record<Plan, number> = {
   free:    50,
@@ -73,7 +20,39 @@ const PLAN_LIMITS: Record<Plan, number> = {
   studio:  20_000,
 }
 
-// ─── Billing cycle helpers ────────────────────────────────────────────────
+// ─── Plain data interface ─────────────────────────────────────────────────────
+
+export interface IUser {
+  readonly id: string
+  email:       string
+  name?:       string
+  image?:      string
+  plan:        Plan
+
+  credits:             number
+  dailyCreditsUsed:    number
+  dailyCreditsResetAt: Date
+
+  modelCallsUsed:  number
+  modelCallsLimit: number
+
+  stripeCustomerId?:    string
+  stripeSubscriptionId?: string
+
+  billingCycleStart: Date
+  billingCycleEnd:   Date
+
+  emailVerified?:    boolean
+  provider?:         'github' | 'google' | 'email'
+  providerAccountId?: string
+
+  projectIds: string[]
+
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
 
 function cycleStart(): Date {
   const d = new Date()
@@ -89,169 +68,193 @@ function cycleEnd(): Date {
   return d
 }
 
-// ─── Schema definition ────────────────────────────────────────────────────────
+function fromDoc(data: FirebaseFirestore.DocumentData, id: string): IUser {
+  return {
+    ...data,
+    id,
+    createdAt:           toDate(data.createdAt),
+    updatedAt:           toDate(data.updatedAt),
+    dailyCreditsResetAt: toDate(data.dailyCreditsResetAt),
+    billingCycleStart:   toDate(data.billingCycleStart),
+    billingCycleEnd:     toDate(data.billingCycleEnd),
+  } as IUser
+}
 
-const UserSchema = new Schema<IUser, IUserModel>(
-  {
-    id: {
-      type:     String,
-      default:  uuidv4,
-      unique:   true,
-      index:    true,
-      immutable: true,
-    },
+// ─── Accepted update shape ────────────────────────────────────────────────────
 
-    email: {
-      type:      String,
-      required:  [true, 'Email is required'],
-      unique:    true,
-      lowercase: true,
-      trim:      true,
-      index:     true,
-      match:     [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email format'],
-    },
+type UserUpdate = Partial<Omit<IUser, 'id'>> & {
+  $inc?: Partial<Record<'credits' | 'modelCallsUsed' | 'dailyCreditsUsed', number>>
+}
 
-    name: {
-      type: String,
-      trim: true,
-    },
-
-    image: {
-      type: String,
-      trim: true,
-    },
-
-    plan: {
-      type:    String,
-      enum:    ['free', 'starter', 'pro', 'studio'] satisfies Plan[],
-      default: 'free' satisfies Plan,
-      index:   true,
-    },
-
-    // ─── Credit system ────────────
-    credits: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    dailyCreditsUsed: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    dailyCreditsResetAt: {
-      type:    Date,
-      default: () => {
-        const d = new Date()
-        d.setHours(0, 0, 0, 0)
-        return d
-      },
-    },
-
-    // ─── Legacy model calls (backward compat) ────────────
-    modelCallsUsed: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    modelCallsLimit: {
-      type:    Number,
-      default: PLAN_LIMITS.free,
-      min:     0,
-    },
-
-    // ─── Stripe ────────────
-    stripeCustomerId: {
-      type:   String,
-      sparse: true,
-      index:  true,
-    },
-
-    stripeSubscriptionId: {
-      type:   String,
-      sparse: true,
-      index:  true,
-    },
-
-    billingCycleStart: {
-      type:    Date,
-      default: cycleStart,
-    },
-
-    billingCycleEnd: {
-      type:    Date,
-      default: cycleEnd,
-    },
-
-    emailVerified: {
-      type: Boolean,
-    },
-
-    provider: {
-      type: String,
-      enum: ['github', 'google', 'email'],
-    },
-
-    providerAccountId: {
-      type:   String,
-      sparse: true,
-      index:  true,
-    },
-
-    projectIds: {
-      type:    [String],
-      default: [],
-    },
-  },
-  {
-    timestamps:        true,
-    toJSON:   { virtuals: true, versionKey: false },
-    toObject: { virtuals: true, versionKey: false },
-  },
-)
-
-// ─── Indexes ──────────────────────────────────────────────────────────────────
-
-UserSchema.index({ provider: 1, providerAccountId: 1 }, { sparse: true })
-UserSchema.index({ plan: 1, credits: 1 })
-
-// ─── Pre-save hook: sync modelCallsLimit with plan ───────────────────────────
-
-UserSchema.pre('save', async function () {
-  if (this.isModified('plan')) {
-    this.modelCallsLimit = PLAN_LIMITS[this.plan]
+function buildFirestoreUpdate(update: UserUpdate): Record<string, unknown> {
+  const { $inc, ...direct } = update
+  const result: Record<string, unknown> = { ...direct, updatedAt: new Date() }
+  if ($inc) {
+    for (const [key, delta] of Object.entries($inc) as [string, number][]) {
+      result[key] = FieldValue.increment(delta)
+    }
   }
-})
-
-// ─── Instance methods ─────────────────────────────────────────────────────────
-
-UserSchema.methods.hasCallsRemaining = function (this: IUser): boolean {
-  return this.modelCallsUsed < this.modelCallsLimit
+  return result
 }
 
-UserSchema.methods.hasCreditsRemaining = function (this: IUser): boolean {
-  return this.credits > 0
+// ─── Public API (mirrors Mongoose model statics) ──────────────────────────────
+
+export const User = {
+  /** Find by any supported field combination (email, id, stripeCustomerId). */
+  async findOne(
+    query: Partial<Pick<IUser, 'email' | 'id' | 'stripeCustomerId'>>,
+  ): Promise<IUser | null> {
+    if (query.email) {
+      const snap = await db.collection(COL)
+        .where('email', '==', query.email.toLowerCase())
+        .limit(1).get()
+      if (snap.empty) return null
+      const doc = snap.docs[0]
+      return fromDoc(doc.data(), doc.id)
+    }
+    if (query.id) {
+      const doc = await db.collection(COL).doc(query.id).get()
+      if (!doc.exists) return null
+      return fromDoc(doc.data()!, doc.id)
+    }
+    if (query.stripeCustomerId) {
+      const snap = await db.collection(COL)
+        .where('stripeCustomerId', '==', query.stripeCustomerId)
+        .limit(1).get()
+      if (snap.empty) return null
+      const doc = snap.docs[0]
+      return fromDoc(doc.data(), doc.id)
+    }
+    return null
+  },
+
+  async findByEmail(email: string): Promise<IUser | null> {
+    return User.findOne({ email })
+  },
+
+  async create(data: Partial<IUser>): Promise<IUser> {
+    const now  = new Date()
+    const plan = (data.plan ?? 'free') as Plan
+    const id   = data.id ?? uuidv4()
+
+    const doc: Omit<IUser, 'id'> = {
+      email:               (data.email ?? '').toLowerCase().trim(),
+      name:                data.name,
+      image:               data.image,
+      plan,
+      credits:             data.credits ?? 0,
+      dailyCreditsUsed:    data.dailyCreditsUsed ?? 0,
+      dailyCreditsResetAt: data.dailyCreditsResetAt ?? now,
+      modelCallsUsed:      data.modelCallsUsed ?? 0,
+      modelCallsLimit:     data.modelCallsLimit ?? PLAN_LIMITS[plan],
+      stripeCustomerId:    data.stripeCustomerId,
+      stripeSubscriptionId:data.stripeSubscriptionId,
+      billingCycleStart:   data.billingCycleStart ?? cycleStart(),
+      billingCycleEnd:     data.billingCycleEnd   ?? cycleEnd(),
+      emailVerified:       data.emailVerified,
+      provider:            data.provider,
+      providerAccountId:   data.providerAccountId,
+      projectIds:          data.projectIds ?? [],
+      createdAt:           data.createdAt ?? now,
+      updatedAt:           data.updatedAt ?? now,
+    }
+
+    await db.collection(COL).doc(id).set(doc)
+    return { id, ...doc }
+  },
+
+  async updateOne(
+    query: Partial<Pick<IUser, 'email' | 'id' | 'stripeCustomerId'>>,
+    update: UserUpdate,
+  ): Promise<void> {
+    const ref = await resolveRef(query)
+    if (!ref) return
+    await ref.update(buildFirestoreUpdate(update))
+  },
+
+  /** Atomically update a user and return the new document (like findOneAndUpdate + {new:true}). */
+  async findOneAndUpdate(
+    query: Partial<Pick<IUser, 'email' | 'id' | 'stripeCustomerId'>> & {
+      credits?: { $gte: number }
+    },
+    update: UserUpdate,
+    _options?: { new?: boolean },
+  ): Promise<IUser | null> {
+    const { credits: creditFilter, ...q } = query as Record<string, unknown>
+
+    const ref = await resolveRef(
+      q as Partial<Pick<IUser, 'email' | 'id' | 'stripeCustomerId'>>,
+    )
+    if (!ref) return null
+
+    return db.runTransaction(async (t) => {
+      const snap = await t.get(ref)
+      if (!snap.exists) return null
+
+      const data = snap.data()!
+
+      if (
+        creditFilter !== undefined &&
+        typeof creditFilter === 'object' &&
+        '$gte' in (creditFilter as object) &&
+        (data.credits ?? 0) < (creditFilter as { $gte: number }).$gte
+      ) {
+        return null
+      }
+
+      const firestoreUpdate = buildFirestoreUpdate(update)
+      t.update(ref, firestoreUpdate)
+
+      const merged: Record<string, unknown> = { ...data }
+      for (const [k, v] of Object.entries(firestoreUpdate)) {
+        if (v && typeof v === 'object' && '_methodName' in v) {
+          const delta = (update.$inc as Record<string, number>)?.[k]
+          if (delta !== undefined) merged[k] = (data[k] as number ?? 0) + delta
+        } else {
+          merged[k] = v
+        }
+      }
+
+      return fromDoc(merged, snap.id)
+    })
+  },
+
+  /** Mass-update all users (cron resets). Returns count of updated docs. */
+  async updateMany(
+    _query: Record<string, unknown>,
+    update: UserUpdate,
+  ): Promise<{ modifiedCount: number }> {
+    const snap = await db.collection(COL).get()
+    const batch = db.batch()
+    snap.forEach((doc) => batch.update(doc.ref, buildFirestoreUpdate(update)))
+    await batch.commit()
+    return { modifiedCount: snap.size }
+  },
 }
 
-UserSchema.methods.incrementCallUsage = async function (
-  this: IUser,
-): Promise<IUser> {
-  this.modelCallsUsed += 1
-  return (this as unknown as { save(): Promise<IUser> }).save()
+// ─── Ref resolver ─────────────────────────────────────────────────────────────
+
+async function resolveRef(
+  query: Partial<Pick<IUser, 'email' | 'id' | 'stripeCustomerId'>>,
+): Promise<FirebaseFirestore.DocumentReference | null> {
+  if (query.id) {
+    return db.collection(COL).doc(query.id)
+  }
+  if (query.email) {
+    const snap = await db.collection(COL)
+      .where('email', '==', query.email.toLowerCase())
+      .limit(1).get()
+    return snap.empty ? null : snap.docs[0].ref
+  }
+  if (query.stripeCustomerId) {
+    const snap = await db.collection(COL)
+      .where('stripeCustomerId', '==', query.stripeCustomerId)
+      .limit(1).get()
+    return snap.empty ? null : snap.docs[0].ref
+  }
+  return null
 }
 
-// ─── Static methods ───────────────────────────────────────────────────────────
+// ─── Re-export for backwards compatibility ────────────────────────────────────
 
-UserSchema.statics.findByEmail = function (
-  email: string,
-): Promise<IUser | null> {
-  return this.findOne({ email: email.toLowerCase().trim() })
-}
-
-// ─── Model export (safe for hot reloads) ─────────────────────────────────────
-
-export const User: IUserModel =
-  (models.User as IUserModel) ?? model<IUser, IUserModel>('User', UserSchema)
+export type IUserModel = typeof User

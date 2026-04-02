@@ -217,7 +217,7 @@ export default function LandingPage() {
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-sm text-gray-400">
               <div className="flex items-center gap-2">
                 <span className="text-yellow-400">⚡</span>
-                <span>Bring your own keys - no API markup</span>
+                <span>Just buy credits — we handle everything</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400" />
@@ -233,7 +233,7 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400" />
-                <span>Bring your own keys</span>
+                <span>No API keys needed</span>
               </div>
             </div>
           </div>
@@ -827,7 +827,7 @@ export default function LandingPage() {
             </Link>
             
             <p className="text-sm text-gray-600 mt-8">
-              Free tier: 50 credits included. Bring your own API keys. No credit card required.
+              Free tier: 50 credits included. No API keys needed. No credit card required.
             </p>
           </div>
         </div>

@@ -16,7 +16,6 @@
 import { v4 as uuidv4 } from 'uuid'
 
 import { callClaude } from '@/lib/adapters'
-import { connectMongoose } from '@/lib/db/mongoose'
 import { ReviewLog } from '@/lib/models/ReviewLog'
 import type {
   ModelResponse,
@@ -245,7 +244,6 @@ export async function runArbitration(
     const result = parseArbitrationResponse(claudeResponse.output)
 
     // Persist to ReviewLog
-    await connectMongoose()
     await ReviewLog.create({
       id: uuidv4(),
       projectId: originalTask.projectId,

@@ -1,33 +1,29 @@
 /**
  * app/api/health/route.ts — Health check endpoint
  *
- * Pings MongoDB to verify system health.
+ * Pings Firestore to verify system health.
  * Returns 200 if healthy, 503 if degraded.
  */
 
 import { NextResponse } from 'next/server'
-import { connectMongoose } from '@/lib/db/mongoose'
+import { db } from '@/lib/db/firestore'
 
 export async function GET() {
   const status = {
     timestamp: new Date().toISOString(),
     services: {
-      mongodb: 'ok' as 'ok' | 'error',
+      firestore: 'ok' as 'ok' | 'error',
     },
   }
 
-  // Check MongoDB
   try {
-    await connectMongoose()
-    status.services.mongodb = 'ok'
+    await db.collection('_health').doc('ping').get()
+    status.services.firestore = 'ok'
   } catch (error) {
-    console.error('[Health] MongoDB check failed:', error)
-    status.services.mongodb = 'error'
+    console.error('[Health] Firestore check failed:', error)
+    status.services.firestore = 'error'
   }
 
-  // Return 503 if any service is degraded
-  const isHealthy = status.services.mongodb === 'ok'
-  const httpStatus = isHealthy ? 200 : 503
-
-  return NextResponse.json(status, { status: httpStatus })
+  const isHealthy = status.services.firestore === 'ok'
+  return NextResponse.json(status, { status: isHealthy ? 200 : 503 })
 }

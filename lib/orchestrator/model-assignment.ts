@@ -6,10 +6,15 @@
  * - Optional reviewer model (critiques the output)
  * - Research flag (whether to prepend a Perplexity research task)
  *
+ * Also provides smart routing that downscales to cheaper models for
+ * simple tasks, preserving credits and reducing cost while maintaining
+ * output quality.
+ *
  * No LLM calls — pure configuration.
  */
 
 import type { TaskType, ModelRole } from '@/lib/types'
+import type { TaskComplexity } from '@/lib/credit-costs'
 
 // ─── Assignment configuration ─────────────────────────────────────────────────────
 
@@ -93,4 +98,67 @@ export function getModelAssignment(taskType: TaskType): ModelAssignment {
  */
 export function requiresResearch(taskType: TaskType): boolean {
   return MODEL_ASSIGNMENT_TABLE[taskType].needsResearch
+}
+
+// ─── Smart routing table ──────────────────────────────────────────────────────
+
+/**
+ * Smart routing table that maps (TaskType, complexity) → ModelAssignment.
+ *
+ * Simple tasks route to cheaper/faster models (Gemini Flash) to reduce
+ * credit cost. Complex tasks keep premium model assignments.
+ *
+ * Cost savings on simple tasks:
+ *   - Gemini Flash: $0.0001 input / $0.0004 output per token
+ *   - vs Claude:    $0.003  input / $0.015  output per token (~30x cheaper)
+ */
+export const SMART_ROUTING_TABLE: Record<TaskType, Record<TaskComplexity, ModelAssignment>> = {
+  architecture: {
+    simple:  { primary: 'gemini',    reviewer: undefined,  needsResearch: false },
+    complex: { primary: 'claude',    reviewer: 'gpt5.4o',  needsResearch: false },
+  },
+  implementation: {
+    simple:  { primary: 'gemini',    reviewer: undefined,  needsResearch: false },
+    complex: { primary: 'codestral', reviewer: 'gpt5.4o',  needsResearch: true  },
+  },
+  refactor: {
+    simple:  { primary: 'gemini',    reviewer: undefined,  needsResearch: false },
+    complex: { primary: 'gemini',    reviewer: 'claude',   needsResearch: false },
+  },
+  review: {
+    simple:  { primary: 'gemini',    reviewer: undefined,  needsResearch: false },
+    complex: { primary: 'gpt5.4o',   reviewer: undefined,  needsResearch: false },
+  },
+  research: {
+    simple:  { primary: 'perplexity', reviewer: undefined, needsResearch: false },
+    complex: { primary: 'perplexity', reviewer: undefined, needsResearch: false },
+  },
+  arbitration: {
+    simple:  { primary: 'claude',    reviewer: undefined,  needsResearch: false },
+    complex: { primary: 'claude',    reviewer: undefined,  needsResearch: false },
+  },
+} as const
+
+/**
+ * Get the cost-optimized model assignment for a given task type and complexity.
+ *
+ * Routes simple tasks to cheaper models while preserving premium models for
+ * complex tasks that genuinely require them.
+ *
+ * @param taskType - The classified task type
+ * @param complexity - Task complexity ('simple' | 'complex')
+ * @returns ModelAssignment optimized for cost and quality
+ *
+ * @example
+ *   const assignment = getSmartModelAssignment('implementation', 'simple')
+ *   // → { primary: 'gemini', reviewer: undefined, needsResearch: false }
+ *
+ *   const assignment = getSmartModelAssignment('implementation', 'complex')
+ *   // → { primary: 'codestral', reviewer: 'gpt5.4o', needsResearch: true }
+ */
+export function getSmartModelAssignment(
+  taskType: TaskType,
+  complexity: TaskComplexity,
+): ModelAssignment {
+  return SMART_ROUTING_TABLE[taskType][complexity]
 }

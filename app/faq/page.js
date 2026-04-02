@@ -66,43 +66,12 @@ const FAQ_SECTIONS = [
         a: 'The Free plan is permanently free with 50 credits on signup. There\'s no time-limited trial — you can use VerityFlow for free and upgrade when you need more credits or higher daily limits.'
       },
       {
-        q: 'How much does each session cost with BYOK?',
-        a: 'With BYOK, you only pay your API providers directly at their published rates (typically $0.01-0.15 per 1K tokens depending on the model). VerityFlow charges zero credit deduction on BYOK calls. You still benefit from the orchestration layer, smart routing, and review pipeline — all at no additional cost.'
+        q: 'What do credits actually pay for?',
+        a: 'Credits cover the full intelligent system: raw LLM API calls across five specialized models, intelligent routing to the right model for each task, the hallucination firewall, multi-model review pipeline, arbitration, and platform infrastructure. We apply a transparent markup on top of our actual API costs so you get the complete expert AI team. Every session includes an itemized cost breakdown so you always know exactly what you paid for.'
       },
       {
         q: 'What payment methods do you accept?',
         a: 'We accept all major credit and debit cards (Visa, Mastercard, American Express, Discover) through Stripe. All transactions are encrypted and PCI-compliant. We do not store your payment information on our servers.'
-      }
-    ]
-  },
-  {
-    title: 'Bring Your Own Keys (BYOK)',
-    icon: '🔑',
-    color: '#f59e0b',
-    questions: [
-      {
-        q: 'What is BYOK?',
-        a: 'BYOK (Bring Your Own Keys) means you connect your own API keys from Anthropic, OpenAI, Mistral, Google AI, and Perplexity directly to VerityFlow. When you use BYOK, model calls go through your accounts — you pay the providers directly at their published rates with no markup from VerityFlow. You\'re only charged for the VerityFlow orchestration layer (your subscription or credits).'
-      },
-      {
-        q: 'Do I need five separate API accounts?',
-        a: 'Not necessarily. The easiest path is a single OpenRouter account (openrouter.ai) — one key gives you access to all five Council models. Fund your OpenRouter account once and VerityFlow routes the right model to each role automatically. Alternatively you can use individual provider keys for more control.'
-      },
-      {
-        q: 'Are my API keys safe?',
-        a: 'Yes. All keys are encrypted at rest using AES-256-GCM encryption before being stored. They are never logged, never sent to third parties, and can be deleted instantly from your settings. The encryption key lives only on VerityFlow\'s servers and is never exposed to the frontend.'
-      },
-      {
-        q: 'What happens if I don\'t add any API keys?',
-        a: 'VerityFlow will use platform-managed API keys and deduct credits from your balance per call. This is the zero-setup path — purchase credits or subscribe to a plan and start building immediately with no API account setup required.'
-      },
-      {
-        q: 'Can I switch between BYOK and credits?',
-        a: 'Yes, at any time. VerityFlow automatically detects whether you have BYOK keys configured. If you do, it uses them. If you don\'t, it falls back to platform keys and deducts credits. You can even mix — if you have individual provider keys for some models but not others, VerityFlow uses your keys where available and falls back to platform keys for the rest.'
-      },
-      {
-        q: 'Which API providers do I need accounts with?',
-        a: 'For full BYOK coverage: Anthropic (Claude), OpenAI (GPT), Mistral (Codestral), Google AI Studio (Gemini), and Perplexity. Alternatively, a single OpenRouter account covers all five. Typical monthly costs with BYOK range from $5-50 depending on usage, significantly less than most AI coding subscriptions.'
       }
     ]
   },
@@ -133,7 +102,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Do you train on my code?',
-        a: 'No. Your prompts and outputs are never used to train AI models — not ours (we don\'t train models), not the providers\' (our terms prohibit it). When using BYOK, this goes through your own provider accounts and their terms apply.'
+        a: 'No. Your prompts and outputs are never used to train AI models — not ours (we don\'t train models), not the providers\' (our terms with Anthropic, OpenAI, Mistral, Google, and Perplexity prohibit it). Your code stays yours.'
       }
     ]
   }

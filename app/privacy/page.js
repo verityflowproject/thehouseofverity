@@ -45,7 +45,7 @@ export default function PrivacyPage() {
               <strong className="text-white">Billing information:</strong> processed by Stripe — we store only a Stripe customer ID, not card numbers
             </div>
             <div>
-              <strong className="text-white">API keys:</strong> if you use BYOK, your keys are stored encrypted using AES-256-GCM. We never read or log their plaintext values.
+              <strong className="text-white">Platform API keys:</strong> VerityFlow manages all AI provider credentials on your behalf. These are platform-level secrets stored securely on our servers and never exposed to users.
             </div>
             <div>
               <strong className="text-white">Technical data:</strong> IP address, browser type, device type, pages visited (standard server logs)
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-semibold text-white mb-4">3. Data Sharing</h2>
           <div className="space-y-4 leading-relaxed">
             <div>
-              <strong className="text-white">AI providers:</strong> your prompts are sent to the relevant AI providers (Anthropic, OpenAI, Mistral, Google, Perplexity) to generate responses. Their own privacy policies govern how they handle this data. When you use BYOK, this goes through your own provider accounts.
+              <strong className="text-white">AI providers:</strong> your prompts are sent to the relevant AI providers (Anthropic, OpenAI, Mistral, Google, Perplexity) via VerityFlow's managed platform credentials to generate responses. Their privacy policies govern how they handle this data.
             </div>
             <div>
               <strong className="text-white">Stripe:</strong> payment processing. Stripe's privacy policy applies.
@@ -92,7 +92,7 @@ export default function PrivacyPage() {
             <li><strong className="text-white">Account data:</strong> retained while your account is active and for 90 days after deletion</li>
             <li><strong className="text-white">Project data:</strong> deleted immediately when you delete a project</li>
             <li><strong className="text-white">Usage logs:</strong> retained for 90 days for billing disputes and analytics</li>
-            <li><strong className="text-white">API keys:</strong> deleted immediately when you remove them from settings</li>
+            <li><strong className="text-white">Account data:</strong> deleted within 30 days when you close your account</li>
             <li>You can request full account deletion by emailing <a href="mailto:privacy@verityflow.io" className="text-indigo-400 hover:text-indigo-300 underline">privacy@verityflow.io</a></li>
           </ul>
         </section>
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-semibold text-white mb-4">6. Security</h2>
           <ul className="space-y-3 leading-relaxed list-disc list-inside">
             <li>All data transmitted over HTTPS/TLS</li>
-            <li>API keys encrypted at rest with AES-256-GCM</li>
+            <li>All data encrypted at rest and in transit</li>
             <li>Passwords: we use OAuth (Google) and magic links — no passwords stored</li>
             <li>Session tokens stored as httpOnly cookies</li>
           </ul>

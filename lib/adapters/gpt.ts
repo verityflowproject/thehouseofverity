@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 import { withRetry } from '@/lib/utils/retry'
 import { ModelAdapterError } from '@/lib/utils/errors'
+import { resolveCredentials } from './credentials'
 import type {
   OrchestratorTask,
   ModelResponse,
@@ -18,15 +19,12 @@ import type {
   TokenUsage,
 } from '@/lib/types'
 
-// ─── Env guard ────────────────────────────────────────────────────────────────
+// ─── Client factory ───────────────────────────────────────────────────────────
 
-if (!process.env.OPENAI_API_KEY) {
-  console.warn('[VerityFlow] OPENAI_API_KEY not set — GPT adapter will fail at runtime')
+function getClient(): OpenAI {
+  const { apiKey } = resolveCredentials('gpt5.4o')
+  return new OpenAI({ apiKey: apiKey || 'missing-key' })
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY ?? 'missing-key',
-})
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -161,7 +159,8 @@ async function executeGPT(task: OrchestratorTask): Promise<ModelResponse> {
   const contextJson = JSON.stringify(task.contextSlice.projectState, null, 2)
   const userMessage = `${task.prompt}\n\n### Project Context\n\`\`\`json\n${contextJson}\n\`\`\``
 
-  // Call OpenAI API
+  // Resolve platform credentials and call OpenAI API
+  const openai = getClient()
   const response = await openai.chat.completions.create({
     model: MODEL_NAME,
     max_tokens: MAX_TOKENS,

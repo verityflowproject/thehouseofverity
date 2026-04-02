@@ -10,6 +10,8 @@ export { callGPT } from './gpt'
 export { callCodestral } from './codestral'
 export { callGemini } from './gemini'
 export { callPerplexity } from './perplexity'
+export { resolveCredentials, isPlatformKeyConfigured } from './credentials'
+export type { ModelCredentials } from './credentials'
 
 import type { OrchestratorTask, ModelResponse, ModelRole } from '@/lib/types'
 import { callClaude } from './claude'
@@ -18,6 +20,7 @@ import { callCodestral } from './codestral'
 import { callGemini } from './gemini'
 import { callPerplexity } from './perplexity'
 import { ModelAdapterError } from '@/lib/utils/errors'
+import { isPlatformKeyConfigured } from './credentials'
 
 /**
  * Route an OrchestratorTask to the appropriate model adapter.
@@ -61,29 +64,11 @@ export async function routeToModel(
 }
 
 /**
- * Check if a model adapter is available (API key configured).
+ * Check if a model adapter is available (platform API key configured).
  *
  * @param model - The model to check
- * @returns true if the model's API key is configured
+ * @returns true if the model's platform API key is configured
  */
 export function isModelAvailable(model: ModelRole): boolean {
-  switch (model) {
-    case 'claude':
-      return !!process.env.ANTHROPIC_API_KEY
-
-    case 'gpt5.4o':
-      return !!process.env.OPENAI_API_KEY
-
-    case 'codestral':
-      return !!process.env.MISTRAL_API_KEY
-
-    case 'gemini':
-      return !!process.env.GOOGLE_AI_API_KEY
-
-    case 'perplexity':
-      return !!process.env.PERPLEXITY_API_KEY
-
-    default:
-      return false
-  }
+  return isPlatformKeyConfigured(model)
 }

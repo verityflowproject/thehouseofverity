@@ -1,8 +1,6 @@
 /**
  * lib/db/index.ts — Database client barrel
  *
- * Import from '@/lib/db' to access all database clients.
+ * Import from '@/lib/db' to access the Firestore client.
  */
-export { connectMongoose, disconnectMongoose, mongoose } from './mongoose'
-export { default as clientPromise } from './mongo-client'
-
+export { db, FieldValue, toDate } from './firestore'

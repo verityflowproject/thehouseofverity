@@ -10,8 +10,10 @@ export { classifyTask, getTaskScores } from './task-classifier'
 // Model assignment
 export {
   getModelAssignment,
+  getSmartModelAssignment,
   requiresResearch,
   MODEL_ASSIGNMENT_TABLE,
+  SMART_ROUTING_TABLE,
 } from './model-assignment'
 export type { ModelAssignment } from './model-assignment'
 

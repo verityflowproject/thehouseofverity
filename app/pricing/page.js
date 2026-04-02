@@ -20,7 +20,7 @@ const PLANS = [
       '~3 council sessions/day',
       'Hallucination firewall',
       'Full review log',
-      'BYOK supported — zero markup'
+      'No API keys needed — we handle everything'
     ],
     cta: 'Get started free',
     ctaLink: '/register',
@@ -41,7 +41,7 @@ const PLANS = [
       '~10 council sessions/day',
       'Extended session history',
       'Email support',
-      'BYOK supported'
+      'All models managed, zero setup'
     ],
     cta: 'Start Starter plan',
     ctaLink: '/register?plan=starter',
@@ -63,7 +63,7 @@ const PLANS = [
       'Priority model routing',
       'Usage analytics dashboard',
       'Priority support',
-      'BYOK supported'
+      'Transparent cost breakdowns'
     ],
     cta: 'Start Pro plan',
     ctaLink: '/register?plan=pro',
@@ -85,7 +85,7 @@ const PLANS = [
       'Custom model routing rules',
       'Team collaboration',
       'Dedicated support & SLA',
-      'BYOK supported'
+      'Full unit economics reporting'
     ],
     cta: 'Start Studio plan',
     ctaLink: '/register?plan=studio',
@@ -135,8 +135,8 @@ const FAQ_TEASER = [
     answer: 'No. Credits purchased through one-time credit packs never expire. Monthly subscription credits are also persistent — they roll over and never disappear. You can use them at your own pace.'
   },
   {
-    question: 'Can I use my own API keys?',
-    answer: 'Yes. All plans support BYOK (Bring Your Own Keys). Connect your Anthropic, OpenAI, Mistral, Google AI, and Perplexity keys directly. When using your own keys, credits are not deducted for API calls — you pay providers directly at their standard rates.'
+    question: 'What do credits actually pay for?',
+    answer: 'Credits cover the full intelligent system: raw LLM API calls across five specialized models, intelligent routing to the right model for each task, the hallucination firewall, multi-model review pipeline, arbitration, and platform infrastructure. We apply a transparent markup on top of our actual API costs — so you get the complete expert AI team, not just raw tokens. Every session shows you an itemized cost breakdown.'
   }
 ]
 
@@ -321,7 +321,7 @@ export default function PublicPricingPage() {
             ))}
           </div>
 
-          {/* BYOK Callout */}
+          {/* Managed Platform Callout */}
           <div className="max-w-5xl mx-auto mb-20">
             <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/30 rounded-2xl p-8">
               <div className="flex items-start gap-4">
@@ -329,9 +329,9 @@ export default function PublicPricingPage() {
                   <Zap className="w-6 h-6 text-indigo-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3">All plans support Bring Your Own Keys</h3>
+                  <h3 className="text-xl font-semibold mb-3">Just buy credits — we handle everything</h3>
                   <p className="text-gray-300 leading-relaxed">
-                    Connect your Anthropic, OpenAI, Mistral, Google AI, and Perplexity keys — or use a single OpenRouter key to cover all five models. When using your own keys, <span className="text-white font-medium">credits are not deducted</span> for API calls. You pay providers directly at their standard rates.
+                    No API accounts to create, no keys to manage, no model selection to worry about. VerityFlow securely manages all five AI models on your behalf and routes each task to the optimal model automatically. Credits cover the complete intelligent system — raw API costs, smart routing, hallucination firewall, multi-model review, and arbitration. <span className="text-white font-medium">Every session includes a transparent cost breakdown</span> so you always know what you're paying for.
                   </p>
                 </div>
               </div>

@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { connectMongoose } from '@/lib/db/mongoose'
 import { User } from '@/lib/models/User'
 import { stripe } from '@/lib/stripe'
 import { CREDIT_PACKS, getStripePriceIdForPack } from '@/lib/credit-costs'
@@ -18,8 +17,6 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    await connectMongoose()
 
     const user = await User.findOne({ email: session.user.email })
     if (!user) {
@@ -45,52 +42,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Look up or create Stripe customer
     let customerId = user.stripeCustomerId
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: session.user.email,
-        name: session.user.name || undefined,
+        name:  session.user.name || undefined,
         metadata: { userId: user.id },
       })
       customerId = customer.id
-      await User.updateOne(
-        { email: session.user.email },
-        { stripeCustomerId: customerId },
-      )
+      await User.updateOne({ email: session.user.email }, { stripeCustomerId: customerId })
     }
 
-    // Create one-time payment Checkout session
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
-      mode: 'payment', // One-time, not subscription
+      mode: 'payment',
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${baseUrl}/dashboard?topup=success&pack=${packId}`,
-      cancel_url: `${baseUrl}/dashboard?topup=cancelled`,
+      cancel_url:  `${baseUrl}/dashboard?topup=cancelled`,
       metadata: {
-        userId: user.id,
-        type: 'credit_topup',
-        packId: pack.id,
+        userId:  user.id,
+        type:    'credit_topup',
+        packId:  pack.id,
         credits: String(pack.credits),
       },
     })
 
     return NextResponse.json({
       checkoutUrl: checkoutSession.url,
-      sessionId: checkoutSession.id,
+      sessionId:   checkoutSession.id,
     })
   } catch (error) {
     console.error('[Credits Purchase] Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to create checkout session' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
   }
 }

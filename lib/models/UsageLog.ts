@@ -1,38 +1,20 @@
 /**
- * lib/models/UsageLog.ts — Per-model-call usage and cost record
+ * lib/models/UsageLog.ts — Firestore UsageLog helpers
  *
- * Written after every successful (or failed) model invocation.
- * Powers:
- *   - The usage dashboard
- *   - Quota enforcement (modelCallsUsed gate)
- *   - Cost attribution per project / user
- *   - Monthly cron reset (zero out counters, keep historical records)
+ * Collection: vf_usage_logs  (document ID = log UUID)
  *
- * Cost estimation uses rough blended per-1k-token rates for each model
- * (weighted average of observed input/output token ratios, June 2025).
- *
- * Relationships (UUID refs):
- *   userId    → User.id
- *   projectId → Project.id
- *   sessionId → orchestrator session UUID
+ * Indexes needed in Firestore console / firestore.indexes.json:
+ *   vf_usage_logs: userId ASC + createdAt ASC
  */
 
-import { Schema, model, models, type Document, type Model } from 'mongoose'
 import { v4 as uuidv4 } from 'uuid'
+import { db, toDate } from '@/lib/db/firestore'
 import type { ModelRole, TaskType } from '@/lib/types'
+
+const COL = 'vf_usage_logs'
 
 // ─── Cost table ───────────────────────────────────────────────────────────────
 
-/**
- * Blended per-1,000-token USD rates (prompt + completion, weighted 70/30).
- * Updated June 2025 based on published provider pricing.
- *
- * claude    : Sonnet 3.5 — $3/M input · $15/M output → blended ~$7.2/M → $0.0072/1k
- * gpt5.4o   : GPT-4.5o   — $2.5/M input · $10/M output → blended ~$4.75/M → $0.00475/1k
- * codestral : Codestral  — $0.3/M input · $0.9/M output → blended ~$0.48/M → $0.00048/1k
- * gemini    : 1.5 Pro    — $1.25/M input · $5/M output → blended ~$2.375/M → $0.0024/1k
- * perplexity: pplx-70b   — $1/M (flat)                              → $0.001/1k
- */
 export const MODEL_COST_PER_1K_TOKENS: Record<ModelRole, number> = {
   claude:      0.0072,
   'gpt5.4o':   0.00475,
@@ -41,36 +23,18 @@ export const MODEL_COST_PER_1K_TOKENS: Record<ModelRole, number> = {
   perplexity:  0.001,
 } as const
 
-/**
- * Estimate the USD cost for a given model and token count.
- *
- * @param model       - The ModelRole that generated the tokens.
- * @param totalTokens - Combined prompt + completion token count.
- * @returns           Estimated cost in USD, rounded to 8 decimal places.
- *
- * @example
- *   estimateCost('claude', 2500)  // → 0.018 USD
- *   estimateCost('codestral', 10_000) // → 0.0048 USD
- */
 export function estimateCost(model: ModelRole, totalTokens: number): number {
   const rate = MODEL_COST_PER_1K_TOKENS[model] ?? MODEL_COST_PER_1K_TOKENS['gpt5.4o']
-  const raw  = (totalTokens / 1_000) * rate
-  // Round to 8 decimal places to avoid floating-point drift in aggregations.
-  return Math.round(raw * 1e8) / 1e8
+  return Math.round(((totalTokens / 1_000) * rate) * 1e8) / 1e8
 }
 
-// ─── Document interface ───────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface IUsageLog extends Document {
+export interface IUsageLog {
   readonly id:      string
-  userId:           string   // UUID → User.id
-  projectId:        string   // UUID → Project.id
-  sessionId:        string   // UUID → orchestrator session
-  /**
-   * The AI model that handled this task.
-   * Named 'aiModel' in the TypeScript interface to avoid conflicting
-   * with the Mongoose Document.model() method; the MongoDB field is 'model'.
-   */
+  userId:           string
+  projectId:        string
+  sessionId:        string
   aiModel:          ModelRole
   taskType:         TaskType
   promptTokens:     number
@@ -78,46 +42,18 @@ export interface IUsageLog extends Document {
   totalTokens:      number
   estimatedCostUsd: number
   success:          boolean
-  /** Wall-clock ms from task dispatch to completion (or failure). */
   durationMs:       number
-  /** HTTP status code returned by the model adapter, if applicable. */
   adapterStatusCode?: number
-  /** Short error message if success === false. */
   errorMessage?:    string
   createdAt:        Date
   updatedAt:        Date
 }
 
-export interface IUsageLogModel extends Model<IUsageLog> {
-  /**
-   * Estimate cost for a model + token count without creating a document.
-   * Exposed as a static so callers can use it before writing.
-   */
-  estimateCost(model: ModelRole, totalTokens: number): number
-
-  /** Return aggregated usage totals for a user in a date range. */
-  aggregateForUser(
-    userId:    string,
-    from:      Date,
-    to:        Date,
-  ): Promise<UserUsageAggregate>
-
-  /** Return per-model token breakdown for a project. */
-  aggregateForProject(
-    projectId: string,
-  ): Promise<ProjectUsageAggregate[]>
-
-  /** Count calls in the current billing window for quota checks. */
-  countCallsForUser(userId: string, since: Date): Promise<number>
-}
-
-// ─── Aggregate result shapes ──────────────────────────────────────────────────
-
 export interface UserUsageAggregate {
   totalCalls:   number
   totalTokens:  number
   totalCostUsd: number
-  successRate:  number  // 0.0 – 1.0
+  successRate:  number
 }
 
 export interface ProjectUsageAggregate {
@@ -127,215 +63,96 @@ export interface ProjectUsageAggregate {
   totalCostUsd: number
 }
 
-// ─── Schema definition ────────────────────────────────────────────────────────
+// ─── Internal helpers ─────────────────────────────────────────────────────────
 
-const MODEL_ROLE_ENUM = ['claude', 'gpt5.4o', 'codestral', 'gemini', 'perplexity'] satisfies ModelRole[]
-const TASK_TYPE_ENUM  = ['architecture', 'implementation', 'research', 'refactor', 'review', 'arbitration'] satisfies TaskType[]
+function fromDoc(data: FirebaseFirestore.DocumentData, id: string): IUsageLog {
+  return {
+    ...data,
+    id,
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
+  } as IUsageLog
+}
 
-const UsageLogSchema = new Schema<IUsageLog, IUsageLogModel>(
-  {
-    id: {
-      type:      String,
-      default:   uuidv4,
-      unique:    true,
-      index:     true,
-      immutable: true,
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export const UsageLog = {
+  async find(
+    query: Partial<Pick<IUsageLog, 'userId' | 'projectId' | 'sessionId'>> & {
+      createdAt?: { $gte?: Date; $lte?: Date }
     },
-
-    userId: {
-      type:     String,
-      required: [true, 'userId is required'],
-      index:    true,
-    },
-
-    projectId: {
-      type:     String,
-      required: [true, 'projectId is required'],
-      index:    true,
-    },
-
-    sessionId: {
-      type:     String,
-      required: [true, 'sessionId is required'],
-      index:    true,
-    },
-
-    aiModel: {
-      type:     String,
-      enum:     MODEL_ROLE_ENUM,
-      required: [true, 'model is required'],
-      index:    true,
-    },
-
-    taskType: {
-      type:     String,
-      enum:     TASK_TYPE_ENUM,
-      required: [true, 'taskType is required'],
-      index:    true,
-    },
-
-    promptTokens: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    completionTokens: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    totalTokens: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    estimatedCostUsd: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    success: {
-      type:    Boolean,
-      default: true,
-      index:   true,
-    },
-
-    durationMs: {
-      type:    Number,
-      default: 0,
-      min:     0,
-    },
-
-    adapterStatusCode: {
-      type: Number,
-    },
-
-    errorMessage: {
-      type:      String,
-      maxlength: 500,
-    },
+  ): Promise<IUsageLog[]> {
+    let ref: FirebaseFirestore.Query = db.collection(COL)
+    if (query.userId)    ref = ref.where('userId',    '==', query.userId)
+    if (query.projectId) ref = ref.where('projectId', '==', query.projectId)
+    if (query.sessionId) ref = ref.where('sessionId', '==', query.sessionId)
+    if (query.createdAt?.$gte) ref = ref.where('createdAt', '>=', query.createdAt.$gte)
+    if (query.createdAt?.$lte) ref = ref.where('createdAt', '<=', query.createdAt.$lte)
+    const snap = await ref.orderBy('createdAt', 'desc').get()
+    return snap.docs.map((d) => fromDoc(d.data(), d.id))
   },
-  {
-    timestamps: true,
-    toJSON:   { virtuals: true, versionKey: false },
-    toObject: { virtuals: true, versionKey: false },
-  },
-)
 
-// ─── Compound indexes ─────────────────────────────────────────────────────────
-
-UsageLogSchema.index({ userId:    1, createdAt: -1 })
-UsageLogSchema.index({ projectId: 1, createdAt: -1 })
-UsageLogSchema.index({ userId:    1, model:     1, createdAt: -1 })
-UsageLogSchema.index({ userId:    1, success:   1, createdAt: -1 })
-// TTL index: auto-delete raw logs after 2 years (adjust as needed)
-UsageLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 730 })
-
-// ─── Pre-save: auto-calculate cost if not provided ───────────────────────────
-
-UsageLogSchema.pre('save', async function () {
-  if (this.isModified('totalTokens') || this.isNew) {
-    const totalTokens = this.get('totalTokens') as number
-    const aiModel     = this.get('aiModel') as ModelRole
-    if ((this.get('estimatedCostUsd') as number) === 0 && totalTokens > 0) {
-      this.set('estimatedCostUsd', estimateCost(aiModel, totalTokens))
+  async insertMany(logs: Partial<IUsageLog>[]): Promise<void> {
+    const now   = new Date()
+    const batch = db.batch()
+    for (const log of logs) {
+      const id = log.id ?? uuidv4()
+      const totalTokens = log.totalTokens ?? 0
+      const aiModel     = log.aiModel as ModelRole
+      const doc = {
+        ...log,
+        id,
+        estimatedCostUsd: log.estimatedCostUsd ?? (totalTokens > 0 ? estimateCost(aiModel, totalTokens) : 0),
+        createdAt:        log.createdAt ?? now,
+        updatedAt:        log.updatedAt ?? now,
+      }
+      batch.set(db.collection(COL).doc(id), doc)
     }
-  }
-})
+    await batch.commit()
+  },
 
-// ─── Static methods ───────────────────────────────────────────────────────────
+  async aggregateForUser(
+    userId: string,
+    from:   Date,
+    to:     Date,
+  ): Promise<UserUsageAggregate> {
+    const logs = await UsageLog.find({ userId, createdAt: { $gte: from, $lte: to } })
+    const totalCalls   = logs.length
+    const totalTokens  = logs.reduce((s, l) => s + (l.totalTokens ?? 0), 0)
+    const totalCostUsd = logs.reduce((s, l) => s + (l.estimatedCostUsd ?? 0), 0)
+    const successCount = logs.filter((l) => l.success).length
+    return {
+      totalCalls,
+      totalTokens,
+      totalCostUsd,
+      successRate: totalCalls === 0 ? 1 : successCount / totalCalls,
+    }
+  },
 
-/**
- * Static cost estimator — identical to the module-level function but
- * accessible via the model class: `UsageLog.estimateCost('claude', 2000)`.
- */
-UsageLogSchema.statics.estimateCost = estimateCost
+  async aggregateForProject(projectId: string): Promise<ProjectUsageAggregate[]> {
+    const logs = await UsageLog.find({ projectId })
+    const byModel = new Map<ModelRole, ProjectUsageAggregate>()
+    for (const log of logs) {
+      const model = log.aiModel
+      const entry = byModel.get(model) ?? { model, totalCalls: 0, totalTokens: 0, totalCostUsd: 0 }
+      entry.totalCalls   += 1
+      entry.totalTokens  += log.totalTokens ?? 0
+      entry.totalCostUsd += log.estimatedCostUsd ?? 0
+      byModel.set(model, entry)
+    }
+    return Array.from(byModel.values()).sort((a, b) => b.totalCalls - a.totalCalls)
+  },
 
-UsageLogSchema.statics.aggregateForUser = async function (
-  userId: string,
-  from:   Date,
-  to:     Date,
-): Promise<UserUsageAggregate> {
-  const [result] = await this.aggregate<UserUsageAggregate & { _id: null }>([
-    {
-      $match: {
-        userId,
-        createdAt: { $gte: from, $lte: to },
-      },
-    },
-    {
-      $group: {
-        _id:          null,
-        totalCalls:   { $sum: 1 },
-        totalTokens:  { $sum: '$totalTokens' },
-        totalCostUsd: { $sum: '$estimatedCostUsd' },
-        successCount: { $sum: { $cond: ['$success', 1, 0] } },
-      },
-    },
-    {
-      $project: {
-        _id:          0,
-        totalCalls:   1,
-        totalTokens:  1,
-        totalCostUsd: 1,
-        successRate:  {
-          $cond: [
-            { $eq: ['$totalCalls', 0] },
-            0,
-            { $divide: ['$successCount', '$totalCalls'] },
-          ],
-        },
-      },
-    },
-  ])
+  async countCallsForUser(userId: string, since: Date): Promise<number> {
+    const snap = await db.collection(COL)
+      .where('userId', '==', userId)
+      .where('createdAt', '>=', since)
+      .count()
+      .get()
+    return snap.data().count
+  },
 
-  return result ?? {
-    totalCalls: 0, totalTokens: 0, totalCostUsd: 0, successRate: 1,
-  }
+  estimateCost,
 }
 
-UsageLogSchema.statics.aggregateForProject = async function (
-  projectId: string,
-): Promise<ProjectUsageAggregate[]> {
-  return this.aggregate<ProjectUsageAggregate>([
-    { $match: { projectId } },
-    {
-      $group: {
-        _id:          '$aiModel',
-        totalCalls:   { $sum: 1 },
-        totalTokens:  { $sum: '$totalTokens' },
-        totalCostUsd: { $sum: '$estimatedCostUsd' },
-      },
-    },
-    {
-      $project: {
-        _id:          0,
-        model:        '$_id',
-        totalCalls:   1,
-        totalTokens:  1,
-        totalCostUsd: 1,
-      },
-    },
-    { $sort: { totalCalls: -1 } },
-  ])
-}
-
-UsageLogSchema.statics.countCallsForUser = function (
-  userId: string,
-  since:  Date,
-): Promise<number> {
-  return this.countDocuments({
-    userId,
-    createdAt: { $gte: since },
-  })
-}
-
-// ─── Model export ─────────────────────────────────────────────────────────────
-
-export const UsageLog: IUsageLogModel =
-  (models.UsageLog as IUsageLogModel) ??
-  model<IUsageLog, IUsageLogModel>('UsageLog', UsageLogSchema)
+export type IUsageLogModel = typeof UsageLog

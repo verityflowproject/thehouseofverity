@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 import { withRetry } from '@/lib/utils/retry'
 import { ModelAdapterError } from '@/lib/utils/errors'
+import { resolveCredentials } from './credentials'
 import type {
   OrchestratorTask,
   ModelResponse,
@@ -18,15 +19,12 @@ import type {
   TokenUsage,
 } from '@/lib/types'
 
-// ─── Env guard ────────────────────────────────────────────────────────────────
+// ─── Client factory ───────────────────────────────────────────────────────────
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.warn('[VerityFlow] ANTHROPIC_API_KEY not set — Claude adapter will fail at runtime')
+function getClient(): Anthropic {
+  const { apiKey } = resolveCredentials('claude')
+  return new Anthropic({ apiKey: apiKey || 'missing-key' })
 }
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY ?? 'missing-key',
-})
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -182,8 +180,9 @@ async function executeClaude(task: OrchestratorTask): Promise<ModelResponse> {
   const contextJson = JSON.stringify(task.contextSlice.projectState, null, 2)
   const userMessage = `${task.prompt}\n\n<project_context>\n${contextJson}\n</project_context>`
 
-  // Call Anthropic API
-  const response = await anthropic.messages.create({
+  // Resolve platform credentials and call Anthropic API
+  const client = getClient()
+  const response = await client.messages.create({
     model: MODEL_NAME,
     max_tokens: MAX_TOKENS,
     temperature: TEMPERATURE,

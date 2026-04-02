@@ -11,21 +11,19 @@ import { v4 as uuidv4 } from 'uuid'
 
 import { withRetry } from '@/lib/utils/retry'
 import { ModelAdapterError } from '@/lib/utils/errors'
+import { resolveCredentials } from './credentials'
 import type {
   OrchestratorTask,
   ModelResponse,
   TokenUsage,
 } from '@/lib/types'
 
-// ─── Env guard ────────────────────────────────────────────────────────────────
+// ─── Client factory ───────────────────────────────────────────────────────────
 
-if (!process.env.MISTRAL_API_KEY) {
-  console.warn('[VerityFlow] MISTRAL_API_KEY not set — Codestral adapter will fail at runtime')
+function getClient(): Mistral {
+  const { apiKey } = resolveCredentials('codestral')
+  return new Mistral({ apiKey: apiKey || 'missing-key' })
 }
-
-const mistral = new Mistral({
-  apiKey: process.env.MISTRAL_API_KEY ?? 'missing-key',
-})
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -112,7 +110,8 @@ async function executeCodestral(task: OrchestratorTask): Promise<ModelResponse> 
   const contextJson = JSON.stringify(task.contextSlice.projectState, null, 2)
   const userMessage = `${task.prompt}\n\n<project_context>\n${contextJson}\n</project_context>`
 
-  // Call Mistral API
+  // Resolve platform credentials and call Mistral API
+  const mistral = getClient()
   const response = await mistral.chat.complete({
     model: MODEL_NAME,
     maxTokens: MAX_TOKENS,
