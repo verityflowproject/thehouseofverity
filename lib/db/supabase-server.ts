@@ -16,11 +16,11 @@ import { createClient } from '@supabase/supabase-js'
  * Singleton across hot-reloads via globalThis cache.
  * Lazy-initialized so the module does not throw at build time.
  */
-const globalForSupabase = globalThis as unknown as {
-  supabaseAdmin?: ReturnType<typeof createClient>
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const globalForSupabase = globalThis as unknown as { supabaseAdmin?: any }
 
-function getSupabaseAdmin() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getSupabaseAdmin(): any {
   if (globalForSupabase.supabaseAdmin) return globalForSupabase.supabaseAdmin
 
   const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -49,7 +49,7 @@ function getSupabaseAdmin() {
 
 export const supabaseAdmin = new Proxy({} as ReturnType<typeof createClient>, {
   get(_target, prop) {
-    return (getSupabaseAdmin() as any)[prop]
+    return getSupabaseAdmin()[prop]
   },
 })
 
