@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { signIn } from 'next-auth/react'
+import { getSupabaseBrowser } from '@/lib/db/supabase-browser'
 
 // Model colors and data
 const MODELS = [
@@ -20,7 +20,13 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     try {
-      await signIn('google', { callbackUrl: '/dashboard' })
+      const supabase = getSupabaseBrowser()
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`,
+        },
+      })
     } catch (error) {
       console.error('Google sign-in error:', error)
       setIsLoading(false)
@@ -33,9 +39,18 @@ export default function LoginPage() {
 
     setIsLoading(true)
     try {
-      await signIn('email', { email, callbackUrl: '/dashboard' })
+      const supabase = getSupabaseBrowser()
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`,
+        },
+      })
+      if (error) throw error
+      alert('Check your email for a magic link to sign in.')
     } catch (error) {
       console.error('Email sign-in error:', error)
+    } finally {
       setIsLoading(false)
     }
   }

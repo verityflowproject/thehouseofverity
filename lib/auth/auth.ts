@@ -1,125 +1,131 @@
 /**
- * lib/auth/auth.ts — NextAuth v5 configuration
+ * lib/auth/auth.ts — Supabase Auth server helpers
  *
- * Strategy : database sessions (not JWT) via FirestoreAdapter.
- * Providers : Google OAuth + Email magic link.
- * Session callback : enriches session.user with plan / usage from our User model.
- * SignIn callback  : auto-creates a VerityFlow User document on first login.
+ * Replaces NextAuth v5. Use getSession() in API routes and server components
+ * as a drop-in replacement for the former auth() call.
  *
- * Export pattern (NextAuth v5):
- *   { handlers, auth, signIn, signOut } = NextAuth({...})
+ * Cookie-aware Supabase client reads the session from Next.js request cookies,
+ * then enriches it with the vf_users profile fetched via the admin client.
  */
 
-import NextAuth from 'next-auth'
-import Google from 'next-auth/providers/google'
-import Nodemailer from 'next-auth/providers/nodemailer'
-import { FirestoreAdapter } from '@auth/firebase-adapter'
-import { v4 as uuidv4 } from 'uuid'
-
-import { db } from '@/lib/db/firestore'
-import { User } from '@/lib/models/User'
-import { CreditTransaction } from '@/lib/models/CreditTransaction'
-import { PLAN_CALL_LIMITS } from '@/lib/types'
-import { SIGNUP_FREE_CREDITS } from '@/lib/credit-costs'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { supabaseAdmin } from '@/lib/db/supabase-server'
 import type { Plan } from '@/lib/types'
 
-// ─── Env guard ────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-if (!process.env.AUTH_SECRET) {
-  throw new Error('[VerityFlow] AUTH_SECRET is not set. Run: openssl rand -hex 32')
+export interface SessionUser {
+  /** vf_users.id — the application-level UUID */
+  id: string
+  /** auth.users.id — the Supabase Auth UUID */
+  authUserId: string
+  email: string
+  name?: string
+  image?: string
+  plan: Plan
+  credits: number
+  modelCallsUsed: number
+  modelCallsLimit: number
 }
 
-// ─── NextAuth v5 configuration ─────────────────────────────────────────────────────
+export interface Session {
+  user: SessionUser
+}
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: FirestoreAdapter(db) as Parameters<typeof NextAuth>[0]['adapter'],
+// ─── Cookie-aware Supabase client ─────────────────────────────────────────────
 
-  secret: process.env.AUTH_SECRET,
-
-  session: {
-    strategy: 'database',
-    maxAge:    30 * 24 * 60 * 60, // 30 days
-    updateAge:      24 * 60 * 60, // refresh every 24 h
-  },
-
-  providers: [
-    Google({
-      clientId:     process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      allowDangerousEmailAccountLinking: true,
-    }),
-
-    Nodemailer({
-      server: process.env.AUTH_EMAIL_SERVER ?? 'smtp://localhost:1025',
-      from:   process.env.AUTH_EMAIL_FROM   ?? 'VerityFlow <noreply@verityflow.io>',
-    }),
-  ],
-
-  callbacks: {
-    async signIn({ user }) {
-      const email = user.email
-      if (!email) return true
-
-      try {
-        const existing = await User.findByEmail(email)
-
-        if (!existing) {
-          const newUserId = uuidv4()
-          await User.create({
-            id:             newUserId,
-            email:          email.toLowerCase(),
-            name:           user.name   ?? undefined,
-            image:          user.image  ?? undefined,
-            plan:           'free' satisfies Plan,
-            credits:        SIGNUP_FREE_CREDITS,
-            modelCallsUsed: 0,
-            modelCallsLimit:PLAN_CALL_LIMITS.free,
-          })
-
-          // Record the signup grant so it appears in the user's credit history
-          await CreditTransaction.create({
-            id:          uuidv4(),
-            userId:      newUserId,
-            type:        'signup_grant',
-            amount:      SIGNUP_FREE_CREDITS,
-            balanceAfter:SIGNUP_FREE_CREDITS,
-            description: `Welcome bonus — ${SIGNUP_FREE_CREDITS} free credits to get started`,
-          })
-        }
-      } catch (err) {
-        console.error('[VerityFlow] signIn upsert error:', err)
-      }
-
-      return true
+function createAuthClient() {
+  const cookieStore = cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            )
+          } catch {
+            // setAll can fail in Server Components (read-only cookie context).
+          }
+        },
+      },
     },
+  )
+}
 
-    async session({ session }) {
-      if (!session.user?.email) return session
+// ─── Row mapper ───────────────────────────────────────────────────────────────
 
-      try {
-        const vfUser = await User.findByEmail(session.user.email)
+function rowToSessionUser(
+  row: Record<string, unknown>,
+  authUserId: string,
+): SessionUser {
+  return {
+    id:              row.id as string,
+    authUserId,
+    email:           row.email as string,
+    name:            row.name  as string | undefined,
+    image:           row.image as string | undefined,
+    plan:            (row.plan as Plan) ?? 'free',
+    credits:         (row.credits          as number) ?? 0,
+    modelCallsUsed:  (row.model_calls_used  as number) ?? 0,
+    modelCallsLimit: (row.model_calls_limit as number) ?? 50,
+  }
+}
 
-        if (vfUser) {
-          session.user.id               = vfUser.id
-          session.user.plan             = (vfUser.plan as Plan) ?? 'free'
-          session.user.credits          = vfUser.credits ?? 0
-          session.user.modelCallsUsed   = vfUser.modelCallsUsed   ?? 0
-          session.user.modelCallsLimit  = vfUser.modelCallsLimit  ?? PLAN_CALL_LIMITS.free
-        }
-      } catch (err) {
-        console.error('[VerityFlow] session enrichment error:', err)
-      }
+// ─── Public API ───────────────────────────────────────────────────────────────
 
-      return session
-    },
-  },
+/**
+ * Retrieve the current session from request cookies.
+ * Returns null when the user is not authenticated.
+ *
+ * Drop-in replacement for the former NextAuth auth() call.
+ *
+ * @example
+ *   const session = await getSession()
+ *   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+ */
+export async function getSession(): Promise<Session | null> {
+  try {
+    const supabase = createAuthClient()
+    const {
+      data: { session: authSession },
+      error,
+    } = await supabase.auth.getSession()
 
-  pages: {
-    signIn:        '/auth/signin',
-    error:         '/auth/error',
-    verifyRequest: '/auth/verify-request',
-    newUser:       '/auth/welcome',
-  },
+    if (error || !authSession?.user) return null
 
-  debug: process.env.NODE_ENV === 'development',
-})
+    const { data: profile } = await supabaseAdmin
+      .from('vf_users')
+      .select('*')
+      .eq('auth_user_id', authSession.user.id)
+      .single()
+
+    if (!profile) return null
+
+    return { user: rowToSessionUser(profile, authSession.user.id) }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Alias for getSession() — matches the former NextAuth auth() call signature
+ * so that API routes can `import { auth } from '@/lib/auth'` unchanged.
+ */
+export const auth = getSession
+
+/**
+ * Like getSession() but throws an error with message 'UNAUTHORIZED' if
+ * no valid session exists. Use at the top of protected API handlers.
+ */
+export async function requireSession(): Promise<Session> {
+  const session = await getSession()
+  if (!session) throw new Error('UNAUTHORIZED')
+  return session
+}

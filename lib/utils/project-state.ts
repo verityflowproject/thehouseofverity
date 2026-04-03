@@ -2,8 +2,8 @@
  * lib/utils/project-state.ts — ProjectState read/write/merge layer
  *
  * Architecture:
- *   - Firestore: durable store via the ProjectState model helper
- *     Collection: vf_project_states  (document ID = projectId, 1:1 with Project)
+ *   - Supabase PostgreSQL: durable store via the ProjectState model helper
+ *     Table: vf_project_states  (project_id = FK to vf_projects, 1:1)
  *
  * Optimistic concurrency:
  *   - The `version` field (integer) acts as an optimistic lock.
@@ -49,15 +49,15 @@ export async function getProjectState(projectId: string): Promise<ProjectState> 
 
 export async function setProjectState(state: ProjectState): Promise<ProjectState> {
   const newVersion = (state.version ?? 0) + 1
-  const updatedAt  = new Date().toISOString()
 
   const updated = await ProjectStateModel.findOneAndUpdate(
     { projectId: state.projectId },
     {
       $set: {
-        ...state,
+        // Cast needed: ProjectState uses ISO strings, IProjectState uses Date
+        ...(state as unknown as Partial<import('@/lib/models/ProjectState').IProjectState>),
         version:   newVersion,
-        updatedAt,
+        updatedAt: new Date(),
       },
     },
     { upsert: true },
@@ -144,7 +144,10 @@ export async function initProjectState(projectId: string): Promise<ProjectState>
     },
   }
 
-  const doc = await ProjectStateModel.create(emptyState)
+  // emptyState has ISO-string dates from the ProjectState type; cast for the model layer
+  const doc = await ProjectStateModel.create(
+    emptyState as unknown as import('@/lib/models/ProjectState').IProjectState,
+  )
   return toPlain(doc as unknown as Record<string, unknown>)
 }
 
@@ -174,9 +177,10 @@ export async function mergeProjectState(
     { projectId },
     {
       $set: {
-        ...patch,
+        // Cast needed: ProjectState uses ISO strings, IProjectState uses Date
+        ...(patch as unknown as Partial<import('@/lib/models/ProjectState').IProjectState>),
         version:   currentVersion + 1,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       },
     },
   )

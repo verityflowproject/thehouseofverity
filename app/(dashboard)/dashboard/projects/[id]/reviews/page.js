@@ -2,7 +2,6 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, ArrowLeft } from 'lucide-react'
 import { auth } from '@/lib/auth'
-import { connectMongoose } from '@/lib/db/mongoose'
 import { Project } from '@/lib/models/Project'
 import ReviewLog from '@/components/project/ReviewLog'
 
@@ -12,14 +11,11 @@ export default async function ProjectReviewsPage({ params }) {
     redirect('/login')
   }
 
-  await connectMongoose()
-  
   const project = await Project.findOne({
-    _id: params.id,
-    userId: session.user.id
-  }).lean()
+    id: params.id,
+  })
 
-  if (!project) {
+  if (!project || project.userId !== session.user.id) {
     notFound()
   }
 
@@ -36,7 +32,7 @@ export default async function ProjectReviewsPage({ params }) {
         </Link>
         <ChevronRight className="w-4 h-4" />
         <Link 
-          href={`/dashboard/projects/${project._id}`}
+          href={`/dashboard/projects/${project.id}`}
           className="hover:text-white transition-colors"
         >
           {project.name}
@@ -55,7 +51,7 @@ export default async function ProjectReviewsPage({ params }) {
         </div>
 
         <Link
-          href={`/dashboard/projects/${project._id}`}
+          href={`/dashboard/projects/${project.id}`}
           className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -64,7 +60,7 @@ export default async function ProjectReviewsPage({ params }) {
       </div>
 
       {/* Full Review Log */}
-      <ReviewLog projectId={project._id.toString()} compact={false} />
+      <ReviewLog projectId={project.id} compact={false} />
     </div>
   )
 }

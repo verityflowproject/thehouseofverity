@@ -118,5 +118,5 @@ export type {
 // Runtime guards (values, not types)
 export { isApiSuccess, isApiError } from './api'
 
-// NextAuth session extension (re-export the helper interface)
-export type { VerityFlowSessionUser } from './next-auth'
+// Supabase session user shape (replaces the former NextAuth VerityFlowSessionUser)
+export type { SessionUser as VerityFlowSessionUser } from '../auth/auth'

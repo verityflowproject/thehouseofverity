@@ -1,12 +1,13 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LogOut } from 'lucide-react'
+import { useUser } from '@/hooks/use-user'
+import { getSupabaseBrowser } from '@/lib/db/supabase-browser'
 
 export default function DashboardLayout({ children }) {
-  const { data: session } = useSession()
+  const { data: session } = useUser()
   const pathname = usePathname()
   
   const user = session?.user
@@ -94,7 +95,10 @@ export default function DashboardLayout({ children }) {
 
               {/* Sign Out */}
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={async () => {
+                await getSupabaseBrowser().auth.signOut()
+                window.location.href = '/'
+              }}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                 title="Sign out"
               >

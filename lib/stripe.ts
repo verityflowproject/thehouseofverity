@@ -20,6 +20,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-12-18.acacia',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiVersion: '2025-03-31.basil' as any,
   typescript: true,
 })

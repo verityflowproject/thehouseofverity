@@ -1,18 +1,12 @@
 /**
- * lib/models/ReviewLog.ts — Firestore ReviewLog helpers
+ * lib/models/ReviewLog.ts — Supabase ReviewLog helpers
  *
- * Collection: vf_review_logs  (document ID = log UUID)
- *
- * Indexes needed:
- *   vf_review_logs: projectId ASC + createdAt DESC
- *   vf_review_logs: sessionId ASC + createdAt ASC
+ * Table: vf_review_logs  (id = UUID)
+ * Public API is unchanged from the Firestore version.
  */
 
-import { v4 as uuidv4 } from 'uuid'
-import { db, toDate } from '@/lib/db/firestore'
+import { supabaseAdmin, table } from '@/lib/db/supabase-server'
 import type { ModelRole, TaskType, Severity } from '@/lib/types'
-
-const COL = 'vf_review_logs'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,15 +47,31 @@ export interface IReviewLog {
   updatedAt:   Date
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// ─── Row mapper ───────────────────────────────────────────────────────────────
 
-function fromDoc(data: FirebaseFirestore.DocumentData, id: string): IReviewLog {
+function fromRow(row: Record<string, unknown>): IReviewLog {
   return {
-    ...data,
-    id,
-    createdAt: toDate(data.createdAt),
-    updatedAt: toDate(data.updatedAt),
-  } as IReviewLog
+    id:                   row.id                   as string,
+    projectId:            row.project_id            as string,
+    sessionId:            row.session_id            as string,
+    reviewingModel:       row.reviewing_model       as ModelRole,
+    authorModel:          row.author_model          as ModelRole,
+    taskType:             row.task_type             as TaskType,
+    inputSummary:         row.input_summary         as string,
+    outputSummary:        row.output_summary        as string,
+    flaggedIssues:        (row.flagged_issues        as IReviewLog['flaggedIssues']) ?? [],
+    outcome:              row.outcome               as ReviewOutcome,
+    patchApplied:         row.patch_applied         as string | undefined,
+    arbitrationRequired:  (row.arbitration_required  as boolean) ?? false,
+    arbitrationRationale: row.arbitration_rationale as string | undefined,
+    tokensUsed:           (row.tokens_used           as IReviewLog['tokensUsed']) ?? {
+      promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0,
+    },
+    durationMs:  (row.duration_ms as number) ?? 0,
+    confidence:  (row.confidence  as number) ?? 0.8,
+    createdAt:   new Date(row.created_at as string),
+    updatedAt:   new Date(row.updated_at as string),
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -69,32 +79,48 @@ function fromDoc(data: FirebaseFirestore.DocumentData, id: string): IReviewLog {
 export const ReviewLog = {
   async create(data: Partial<IReviewLog>): Promise<IReviewLog> {
     const now = new Date()
-    const id  = data.id ?? uuidv4()
-    const doc = {
-      ...data,
-      id,
-      flaggedIssues:       data.flaggedIssues ?? [],
-      arbitrationRequired: data.arbitrationRequired ?? false,
-      durationMs:          data.durationMs ?? 0,
-      confidence:          data.confidence ?? 0.8,
-      createdAt:           data.createdAt ?? now,
-      updatedAt:           data.updatedAt ?? now,
+    const row: Record<string, unknown> = {
+      project_id:           data.projectId,
+      session_id:           data.sessionId,
+      reviewing_model:      data.reviewingModel,
+      author_model:         data.authorModel,
+      task_type:            data.taskType,
+      input_summary:        data.inputSummary  ?? '',
+      output_summary:       data.outputSummary ?? '',
+      flagged_issues:       data.flaggedIssues ?? [],
+      outcome:              data.outcome,
+      patch_applied:        data.patchApplied,
+      arbitration_required: data.arbitrationRequired ?? false,
+      arbitration_rationale: data.arbitrationRationale,
+      tokens_used:          data.tokensUsed ?? {},
+      duration_ms:          data.durationMs ?? 0,
+      confidence:           data.confidence ?? 0.8,
+      created_at:           data.createdAt ?? now,
+      updated_at:           data.updatedAt ?? now,
     }
-    await db.collection(COL).doc(id).set(doc)
-    return fromDoc(doc, id)
+    if (data.id) row['id'] = data.id
+
+    const { data: created, error } = await table('vf_review_logs').insert(row).select().single()
+
+    if (error || !created) throw new Error(`Failed to create review log: ${error?.message}`)
+    return fromRow(created)
   },
 
   async find(
     query: Partial<Pick<IReviewLog, 'projectId' | 'sessionId'>>,
     opts: { limit?: number; sort?: 'asc' | 'desc' } = {},
   ): Promise<IReviewLog[]> {
-    let ref: FirebaseFirestore.Query = db.collection(COL)
-    if (query.projectId) ref = ref.where('projectId', '==', query.projectId)
-    if (query.sessionId) ref = ref.where('sessionId', '==', query.sessionId)
-    ref = ref.orderBy('createdAt', opts.sort ?? 'desc')
-    if (opts.limit) ref = ref.limit(opts.limit)
-    const snap = await ref.get()
-    return snap.docs.map((d) => fromDoc(d.data(), d.id))
+    let q = supabaseAdmin.from('vf_review_logs').select('*')
+
+    if (query.projectId) q = q.eq('project_id', query.projectId)
+    if (query.sessionId) q = q.eq('session_id', query.sessionId)
+
+    q = q.order('created_at', { ascending: opts.sort === 'asc' })
+    if (opts.limit) q = q.limit(opts.limit)
+
+    const { data, error } = await q
+    if (error || !data) return []
+    return data.map(fromRow)
   },
 
   async findByProject(projectId: string, limit = 100): Promise<IReviewLog[]> {
@@ -106,16 +132,20 @@ export const ReviewLog = {
   },
 
   async countByOutcome(projectId: string): Promise<Record<ReviewOutcome, number>> {
-    const snap = await db.collection(COL)
-      .where('projectId', '==', projectId)
-      .get()
+    const { data } = await supabaseAdmin
+      .from('vf_review_logs')
+      .select('outcome')
+      .eq('project_id', projectId)
+
     const base: Record<ReviewOutcome, number> = {
       approved: 0, rejected: 0, patched: 0, escalated: 0,
     }
-    snap.forEach((doc) => {
-      const outcome = doc.data().outcome as ReviewOutcome
+
+    for (const row of data ?? []) {
+      const outcome = (row as Record<string, unknown>).outcome as ReviewOutcome
       if (outcome in base) base[outcome]++
-    })
+    }
+
     return base
   },
 }

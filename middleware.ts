@@ -1,14 +1,16 @@
 /**
  * middleware.ts — Next.js middleware for route protection
  *
- * Uses session tokens from cookies (edge-compatible) instead of database calls
- * Protects all non-public routes by checking for NextAuth session cookie.
+ * Uses Supabase SSR helpers to refresh the session cookie on every request,
+ * then protects private routes by checking whether a valid session exists.
  */
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createMiddlewareClient } from '@/lib/db/supabase-middleware'
 
-// Public routes that don't require authentication
+// ─── Route lists ─────────────────────────────────────────────────────────────
+
 const PUBLIC_ROUTES = [
   '/',
   '/login',
@@ -28,23 +30,14 @@ const PUBLIC_ROUTES = [
   '/changelog',
   '/status',
   '/compare',
-  '/dashboard', // Allow viewing dashboard without auth
+  '/dashboard',
 ]
 
-// Auth routes that authenticated users should be redirected away from
 const AUTH_ROUTES = ['/login', '/signup', '/register']
 
-/**
- * Check if a path matches any of the patterns
- */
 function isPublicRoute(path: string): boolean {
-  // Exact matches
   if (PUBLIC_ROUTES.includes(path)) return true
-
-  // NextAuth routes
-  if (path.startsWith('/api/auth/')) return true
-
-  // Next.js static assets
+  if (path.startsWith('/api/auth/'))  return true
   if (
     path.startsWith('/_next/') ||
     path.startsWith('/static/') ||
@@ -54,7 +47,6 @@ function isPublicRoute(path: string): boolean {
   ) {
     return true
   }
-
   return false
 }
 
@@ -62,44 +54,39 @@ function isAuthRoute(path: string): boolean {
   return AUTH_ROUTES.includes(path)
 }
 
-export function middleware(request: NextRequest) {
+// ─── Middleware ───────────────────────────────────────────────────────────────
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Skip middleware for public routes
+  // Build base response early so Supabase can set/refresh session cookies.
+  const response = NextResponse.next({ request })
+  const supabase = createMiddlewareClient(request, response)
+
+  // Always call getSession() so Supabase can refresh expired tokens.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
   if (isPublicRoute(pathname)) {
-    return NextResponse.next()
+    return response
   }
 
-  // Check for session cookie (edge-compatible)
-  // NextAuth v5 uses either 'authjs.session-token' or '__Secure-authjs.session-token'
-  const sessionToken = request.cookies.get('authjs.session-token') ||
-    request.cookies.get('__Secure-authjs.session-token')
-
-  // Redirect unauthenticated users to login
-  if (!sessionToken) {
+  if (!session) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Redirect authenticated users away from auth pages
   if (isAuthRoute(pathname)) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  return NextResponse.next()
+  return response
 }
 
-// Configure which routes to run middleware on
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

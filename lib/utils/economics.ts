@@ -1,7 +1,7 @@
 /**
  * lib/utils/economics.ts — Unit economics aggregation
  *
- * Computes P50 / P90 / P99 cost and latency percentiles from UsageLog records.
+ * Computes P50 / P90 / P99 cost and latency percentiles from vf_usage_logs.
  * Used by the internal admin economics endpoint to track real unit economics
  * per request type, enabling margin monitoring as usage scales.
  *
@@ -10,7 +10,7 @@
  *   const stats = await computeEconomics({ days: 30 })
  */
 
-import { db, toDate } from '@/lib/db/firestore'
+import { supabaseAdmin } from '@/lib/db/supabase-server'
 import { MARGIN_MULTIPLIER, CREDIT_UNIT_VALUE } from '@/lib/credit-costs'
 import type { ModelRole, TaskType } from '@/lib/types'
 
@@ -31,7 +31,7 @@ export interface ModelEconomics {
   calls:              number
   totalTokens:        number
   totalRawCostUsd:    number
-  totalRevenueUsd:    number   // raw cost × MARGIN_MULTIPLIER
+  totalRevenueUsd:    number
   avgMarginPercent:   number
   latencyMs:          PercentileStats
   creditsPerCall:     PercentileStats
@@ -91,55 +91,55 @@ function computePercentileStats(values: number[]): PercentileStats {
   }
 }
 
-// ─── Main aggregation ─────────────────────────────────────────────────────────
+// ─── Options ─────────────────────────────────────────────────────────────────
 
 export interface ComputeEconomicsOptions {
   /** Number of days to look back (default: 30, max: 90). */
   days?: number
-  /** Optional: filter to a specific user (for user-level analytics). */
+  /** Optional: filter to a specific user. */
   userId?: string
 }
 
-/**
- * Compute unit economics from UsageLog records over the specified period.
- *
- * Reads raw vf_usage_logs, groups by model and task type, and computes
- * P50/P90/P99 percentiles for cost and latency. This enables tracking of:
- *   - Actual margin per model vs. expected margin multiplier
- *   - P99 latency per model for SLA monitoring
- *   - Cost trends by task type to identify expensive patterns
- */
+// ─── Main aggregation ─────────────────────────────────────────────────────────
+
 export async function computeEconomics(
   opts: ComputeEconomicsOptions = {},
 ): Promise<EconomicsReport> {
-  const days = Math.min(opts.days ?? 30, 90)
+  const days      = Math.min(opts.days ?? 30, 90)
   const endDate   = new Date()
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - days)
 
-  // Query UsageLogs for the period
-  let query: FirebaseFirestore.Query = db.collection('vf_usage_logs')
-    .where('createdAt', '>=', startDate)
-    .where('createdAt', '<=', endDate)
+  let query = supabaseAdmin
+    .from('vf_usage_logs')
+    .select('ai_model, task_type, total_tokens, estimated_cost_usd, duration_ms')
+    .gte('created_at', startDate.toISOString())
+    .lte('created_at', endDate.toISOString())
 
   if (opts.userId) {
-    query = query.where('userId', '==', opts.userId)
+    query = query.eq('user_id', opts.userId)
   }
 
-  const snap = await query.get()
-  const logs = snap.docs.map((d) => ({
-    ...d.data(),
-    id:        d.id,
-    createdAt: toDate(d.data().createdAt),
-  }))
+  const { data, error } = await query
+  if (error) {
+    console.error('[Economics] Query error:', error)
+  }
+
+  const logs = (data ?? []) as Array<{
+    ai_model:           string
+    task_type:          string
+    total_tokens:       number
+    estimated_cost_usd: number
+    duration_ms:        number
+  }>
 
   // Group by model
   const modelGroups = new Map<ModelRole, typeof logs>()
   const taskGroups  = new Map<TaskType,  typeof logs>()
 
   for (const log of logs) {
-    const model    = log.aiModel    as ModelRole
-    const taskType = log.taskType   as TaskType
+    const model    = log.ai_model    as ModelRole
+    const taskType = log.task_type   as TaskType
 
     if (!modelGroups.has(model))    modelGroups.set(model,    [])
     if (!taskGroups.has(taskType))  taskGroups.set(taskType,  [])
@@ -150,12 +150,11 @@ export async function computeEconomics(
   // Build per-model economics
   const byModel: ModelEconomics[] = []
   for (const [model, entries] of modelGroups.entries()) {
-    const rawCostValues   = entries.map((e) => (e.estimatedCostUsd as number) ?? 0)
-    const latencyValues   = entries.map((e) => (e.durationMs       as number) ?? 0)
+    const rawCostValues   = entries.map((e) => e.estimated_cost_usd ?? 0)
+    const latencyValues   = entries.map((e) => e.duration_ms ?? 0)
     const totalRawCost    = rawCostValues.reduce((s, v) => s + v, 0)
     const totalRevenue    = totalRawCost * MARGIN_MULTIPLIER
-    const totalTokens     = entries.reduce((s, e) => s + ((e.totalTokens as number) ?? 0), 0)
-    // Estimate credits per call: revenue / credit unit value
+    const totalTokens     = entries.reduce((s, e) => s + (e.total_tokens ?? 0), 0)
     const creditsPerCallValues = rawCostValues.map(
       (cost) => Math.max(1, Math.ceil((cost * MARGIN_MULTIPLIER) / CREDIT_UNIT_VALUE)),
     )
@@ -176,7 +175,7 @@ export async function computeEconomics(
   // Build per-task-type economics
   const byTaskType: TaskTypeEconomics[] = []
   for (const [taskType, entries] of taskGroups.entries()) {
-    const rawCostValues   = entries.map((e) => (e.estimatedCostUsd as number) ?? 0)
+    const rawCostValues   = entries.map((e) => e.estimated_cost_usd ?? 0)
     const totalRawCost    = rawCostValues.reduce((s, v) => s + v, 0)
     const totalRevenue    = totalRawCost * MARGIN_MULTIPLIER
     const creditsPerCallValues = rawCostValues.map(
@@ -193,9 +192,8 @@ export async function computeEconomics(
     })
   }
 
-  // Overall totals
-  const totalRawCost  = logs.reduce((s, e) => s + ((e.estimatedCostUsd as number) ?? 0), 0)
-  const totalRevenue  = totalRawCost * MARGIN_MULTIPLIER
+  const totalRawCost = logs.reduce((s, e) => s + (e.estimated_cost_usd ?? 0), 0)
+  const totalRevenue = totalRawCost * MARGIN_MULTIPLIER
 
   return {
     period: {

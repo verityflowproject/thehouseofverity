@@ -245,7 +245,7 @@ async function persistReviewLog(
   sessionId: string,
   reviewingModel: ModelRole,
   authorModel: ModelRole,
-  taskType: string,
+  taskType: import('@/lib/types').TaskType,
   reviewResult: ReviewResult,
   tokensUsed: TokenUsage,
 ): Promise<void> {

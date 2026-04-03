@@ -1,17 +1,11 @@
 /**
- * lib/models/CreditTransaction.ts — Firestore CreditTransaction helpers
+ * lib/models/CreditTransaction.ts — Supabase CreditTransaction helpers
  *
- * Collection: vf_credit_transactions  (document ID = transaction UUID)
- *
- * Indexes needed:
- *   vf_credit_transactions: userId ASC + createdAt DESC
- *   vf_credit_transactions: sessionId ASC + createdAt ASC
+ * Table: vf_credit_transactions  (id = UUID)
+ * Public API is unchanged from the Firestore version.
  */
 
-import { v4 as uuidv4 } from 'uuid'
-import { db, toDate } from '@/lib/db/firestore'
-
-const COL = 'vf_credit_transactions'
+import { supabaseAdmin, table } from '@/lib/db/supabase-server'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,15 +36,27 @@ export interface ICreditTransaction {
   updatedAt:       Date
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// ─── Row mapper ───────────────────────────────────────────────────────────────
 
-function fromDoc(data: FirebaseFirestore.DocumentData, id: string): ICreditTransaction {
+function fromRow(row: Record<string, unknown>): ICreditTransaction {
   return {
-    ...data,
-    id,
-    createdAt: toDate(data.createdAt),
-    updatedAt: toDate(data.updatedAt),
-  } as ICreditTransaction
+    id:                    row.id                      as string,
+    userId:                row.user_id                 as string,
+    type:                  row.type                    as CreditTransactionType,
+    amount:                row.amount                  as number,
+    balanceAfter:          row.balance_after           as number,
+    description:           (row.description            as string) ?? '',
+    sessionId:             row.session_id              as string | undefined,
+    projectId:             row.project_id              as string | undefined,
+    modelUsed:             row.model_used              as string | undefined,
+    inputTokens:           row.input_tokens            as number | undefined,
+    outputTokens:          row.output_tokens           as number | undefined,
+    realCostUsd:           row.real_cost_usd           as number | undefined,
+    stripePaymentIntentId: row.stripe_payment_intent_id as string | undefined,
+    creditPackId:          row.credit_pack_id          as string | undefined,
+    createdAt:             new Date(row.created_at as string),
+    updatedAt:             new Date(row.updated_at as string),
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -58,62 +64,89 @@ function fromDoc(data: FirebaseFirestore.DocumentData, id: string): ICreditTrans
 export const CreditTransaction = {
   async create(data: Partial<ICreditTransaction>): Promise<ICreditTransaction> {
     const now = new Date()
-    const id  = data.id ?? uuidv4()
-    const doc = {
-      ...data,
-      id,
-      createdAt: data.createdAt ?? now,
-      updatedAt: data.updatedAt ?? now,
+    const row: Record<string, unknown> = {
+      user_id:                 data.userId,
+      type:                    data.type,
+      amount:                  data.amount,
+      balance_after:           data.balanceAfter,
+      description:             data.description ?? '',
+      session_id:              data.sessionId,
+      project_id:              data.projectId,
+      model_used:              data.modelUsed,
+      input_tokens:            data.inputTokens,
+      output_tokens:           data.outputTokens,
+      real_cost_usd:           data.realCostUsd,
+      stripe_payment_intent_id: data.stripePaymentIntentId,
+      credit_pack_id:          data.creditPackId,
+      created_at:              data.createdAt ?? now,
+      updated_at:              data.updatedAt ?? now,
     }
-    await db.collection(COL).doc(id).set(doc)
-    return fromDoc(doc, id)
+    if (data.id) row['id'] = data.id
+
+    const { data: created, error } = await table('vf_credit_transactions').insert(row).select().single()
+
+    if (error || !created) throw new Error(`Failed to create credit transaction: ${error?.message}`)
+    return fromRow(created)
   },
 
   async find(
     query: Partial<Pick<ICreditTransaction, 'userId' | 'type' | 'sessionId'>>,
     opts: { limit?: number; offset?: number; sort?: 'asc' | 'desc' } = {},
   ): Promise<ICreditTransaction[]> {
-    let ref: FirebaseFirestore.Query = db.collection(COL)
-    if (query.userId)    ref = ref.where('userId',    '==', query.userId)
-    if (query.type)      ref = ref.where('type',      '==', query.type)
-    if (query.sessionId) ref = ref.where('sessionId', '==', query.sessionId)
-    ref = ref.orderBy('createdAt', opts.sort ?? 'desc')
-    if (opts.offset) ref = ref.offset(opts.offset)
-    if (opts.limit)  ref = ref.limit(opts.limit)
-    const snap = await ref.get()
-    return snap.docs.map((d) => fromDoc(d.data(), d.id))
+    let q = supabaseAdmin.from('vf_credit_transactions').select('*')
+
+    if (query.userId)    q = q.eq('user_id',    query.userId)
+    if (query.type)      q = q.eq('type',       query.type)
+    if (query.sessionId) q = q.eq('session_id', query.sessionId)
+
+    q = q.order('created_at', { ascending: opts.sort === 'asc' })
+    if (opts.offset) q = q.range(opts.offset, opts.offset + (opts.limit ?? 50) - 1)
+    else if (opts.limit) q = q.limit(opts.limit)
+
+    const { data, error } = await q
+    if (error || !data) return []
+    return data.map(fromRow)
   },
 
   async countDocuments(
     query: Partial<Pick<ICreditTransaction, 'userId' | 'type'>>,
   ): Promise<number> {
-    let ref: FirebaseFirestore.Query = db.collection(COL)
-    if (query.userId) ref = ref.where('userId', '==', query.userId)
-    if (query.type)   ref = ref.where('type',   '==', query.type)
-    const snap = await ref.count().get()
-    return snap.data().count
+    let q = supabaseAdmin
+      .from('vf_credit_transactions')
+      .select('*', { count: 'exact', head: true })
+
+    if (query.userId) q = q.eq('user_id', query.userId)
+    if (query.type)   q = q.eq('type',    query.type)
+
+    const { count, error } = await q
+    if (error) return 0
+    return count ?? 0
   },
 
   async getHistory(
     userId: string,
-    limit:  number = 50,
-    offset: number = 0,
+    limit  = 50,
+    offset = 0,
   ): Promise<ICreditTransaction[]> {
     return CreditTransaction.find({ userId }, { limit, offset, sort: 'desc' })
   },
 
-  /** Sum of absolute credit amounts for session deductions today. */
   async getDailyUsage(userId: string): Promise<number> {
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
 
-    const snap = await db.collection(COL)
-      .where('userId', '==', userId)
-      .where('type', '==', 'session_deduction')
-      .where('createdAt', '>=', startOfDay)
-      .get()
+    const { data } = await supabaseAdmin
+      .from('vf_credit_transactions')
+      .select('amount')
+      .eq('user_id', userId)
+      .eq('type', 'session_deduction')
+      .gte('created_at', startOfDay.toISOString())
 
-    return snap.docs.reduce((sum, doc) => sum + Math.abs(doc.data().amount ?? 0), 0)
+    if (!data) return 0
+    return (data as Array<Record<string, unknown>>).reduce(
+      (sum, row) => sum + Math.abs((row.amount as number) ?? 0),
+      0,
+    )
   },
 
   async getSessionBreakdown(sessionId: string): Promise<ICreditTransaction[]> {

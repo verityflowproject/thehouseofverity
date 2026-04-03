@@ -1,8 +1,8 @@
 /**
- * lib/models/index.ts — Firestore model barrel
+ * lib/models/index.ts — Supabase model barrel
  *
- * Import from '@/lib/models' to access all Firestore model helpers.
- * No connection setup is needed — Firebase Admin SDK connects automatically.
+ * Import from '@/lib/models' to access all data model helpers.
+ * No connection setup is needed — the Supabase admin client connects automatically.
  *
  * @example
  *   import { User, Project, ProjectState, ReviewLog, UsageLog } from '@/lib/models'

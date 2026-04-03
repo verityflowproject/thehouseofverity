@@ -1,6 +1,8 @@
 /**
  * lib/db/index.ts — Database client barrel
  *
- * Import from '@/lib/db' to access the Firestore client.
+ * Import from '@/lib/db' to access the Supabase admin client (server-side).
+ * For browser use, import from '@/lib/db/supabase-browser'.
+ * For middleware, import from '@/lib/db/supabase-middleware'.
  */
-export { db, FieldValue, toDate } from './firestore'
+export { supabaseAdmin } from './supabase-server'

@@ -2,7 +2,7 @@
  * project.ts — ProjectState and all nested data structures
  *
  * ProjectState is the central shared-memory object that travels with
- * every model call as a context slice and is persisted to MongoDB
+ * every model call as a context slice and is persisted to Supabase
  * between sessions. Every field is typed explicitly; no `any`.
  */
 
@@ -287,7 +287,7 @@ export type { Priority } from './models'
 /**
  * ProjectState is the single source of truth shared across all model
  * calls within a project. It is:
- *   1. Persisted to MongoDB keyed by `projectId`
+ *   1. Persisted to Supabase (vf_project_states) keyed by `projectId`
  *   2. Sliced per-call into a ContextSlice before being sent to a model
  *   3. Merged back (partial update) after each model response
  *

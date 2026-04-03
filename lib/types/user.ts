@@ -1,8 +1,8 @@
 /**
  * user.ts — User profile, session payload, and billing types
  *
- * These interfaces back the NextAuth session, the MongoDB user
- * collection, and the billing/usage dashboard.
+ * These interfaces back the Supabase Auth session, the vf_users
+ * PostgreSQL table, and the billing/usage dashboard.
  */
 
 import type { Plan } from './models'
@@ -10,8 +10,8 @@ import type { Plan } from './models'
 // ─── User profile ─────────────────────────────────────────────────────────────
 
 /**
- * Full user document as stored in MongoDB.
- * The `id` field is a UUID v4 string (not MongoDB ObjectId).
+ * Full user document as stored in the vf_users Supabase table.
+ * The `id` field is a UUID v4 string.
  */
 export interface UserProfile {
   readonly id: string

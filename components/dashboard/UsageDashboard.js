@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useUser } from '@/hooks/use-user'
 import { AlertTriangle, TrendingUp, DollarSign, Layers, Coins, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
@@ -14,7 +14,7 @@ const MODEL_COLORS = {
 }
 
 export function UsageDashboard() {
-  const { data: session } = useSession()
+  const { data: session } = useUser()
   const [period, setPeriod] = useState(30) // 7, 30, or 90 days
   const [usageData, setUsageData] = useState(null)
   const [creditBalance, setCreditBalance] = useState(null)

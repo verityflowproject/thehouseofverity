@@ -1,16 +1,13 @@
 /**
- * lib/models/ProjectState.ts — Firestore ProjectState helpers
+ * lib/models/ProjectState.ts — Supabase ProjectState helpers
  *
- * Collection: vf_project_states  (document ID = projectId, 1:1 with Project)
- *
- * Optimistic concurrency: the `version` integer field acts as an optimistic
- * lock — callers pass the version they read; writes reject if it has changed.
+ * Table: vf_project_states  (project_id = FK to vf_projects, 1:1)
+ * JSONB columns store nested data (architecture, conventions, etc.)
+ * Atomic upsert with version increment is handled by the upsert_project_state RPC.
+ * Public API is unchanged from the Firestore version.
  */
 
-import { v4 as uuidv4 } from 'uuid'
-import { db, FieldValue, toDate } from '@/lib/db/firestore'
-
-const COL = 'vf_project_states'
+import { supabaseAdmin, table } from '@/lib/db/supabase-server'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,16 +25,22 @@ export interface IProjectState {
   updatedAt:     Date
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// ─── Row mapper ───────────────────────────────────────────────────────────────
 
-function fromDoc(data: FirebaseFirestore.DocumentData, id: string): IProjectState {
+function fromRow(row: Record<string, unknown>): IProjectState {
   return {
-    ...data,
-    id,
-    projectId:  data.projectId ?? id,
-    createdAt:  toDate(data.createdAt),
-    updatedAt:  toDate(data.updatedAt),
-  } as IProjectState
+    id:            row.id         as string,
+    projectId:     row.project_id as string,
+    version:       (row.version   as number) ?? 1,
+    architecture:  (row.architecture  as Record<string, unknown>) ?? {},
+    conventions:   (row.conventions   as Record<string, unknown>) ?? {},
+    dependencies:  (row.dependencies  as Record<string, unknown>) ?? {},
+    openQuestions: (row.open_questions as Record<string, unknown>[]) ?? [],
+    reviewLog:     (row.review_log     as Record<string, unknown>[]) ?? [],
+    activeTask:    (row.active_task    as Record<string, unknown> | null) ?? null,
+    createdAt:     new Date(row.created_at as string),
+    updatedAt:     new Date(row.updated_at as string),
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -47,9 +50,15 @@ export const ProjectState = {
     query: Partial<Pick<IProjectState, 'projectId'>>,
   ): Promise<IProjectState | null> {
     if (!query.projectId) return null
-    const doc = await db.collection(COL).doc(query.projectId).get()
-    if (!doc.exists) return null
-    return fromDoc(doc.data()!, doc.id)
+
+    const { data, error } = await supabaseAdmin
+      .from('vf_project_states')
+      .select('*')
+      .eq('project_id', query.projectId)
+      .single()
+
+    if (error || !data) return null
+    return fromRow(data)
   },
 
   async findByProject(projectId: string): Promise<IProjectState | null> {
@@ -59,26 +68,30 @@ export const ProjectState = {
   async create(data: Partial<IProjectState>): Promise<IProjectState> {
     const now       = new Date()
     const projectId = data.projectId ?? ''
-    const id        = data.id ?? uuidv4()
-    const doc: Omit<IProjectState, 'id'> = {
-      projectId,
-      version:       data.version ?? 1,
-      architecture:  data.architecture  ?? {},
-      conventions:   data.conventions   ?? {},
-      dependencies:  data.dependencies  ?? {},
-      openQuestions: data.openQuestions ?? [],
-      reviewLog:     data.reviewLog     ?? [],
-      activeTask:    data.activeTask    ?? null,
-      createdAt:     data.createdAt ?? now,
-      updatedAt:     data.updatedAt ?? now,
+
+    const row: Record<string, unknown> = {
+      project_id:     projectId,
+      version:        data.version ?? 1,
+      architecture:   data.architecture  ?? {},
+      conventions:    data.conventions   ?? {},
+      dependencies:   data.dependencies  ?? {},
+      open_questions: data.openQuestions ?? [],
+      review_log:     data.reviewLog     ?? [],
+      active_task:    data.activeTask    ?? null,
+      created_at:     data.createdAt ?? now,
+      updated_at:     data.updatedAt ?? now,
     }
-    await db.collection(COL).doc(projectId).set({ id, ...doc })
-    return { id, ...doc }
+    if (data.id) row['id'] = data.id
+
+    const { data: created, error } = await table('vf_project_states').insert(row).select().single()
+
+    if (error || !created) throw new Error(`Failed to create project state: ${error?.message}`)
+    return fromRow(created)
   },
 
   /**
-   * Upsert with version increment (set + merge).
-   * Equivalent to findOneAndUpdate({ projectId }, { $set: ... }, { upsert: true }).
+   * Upsert with optional version increment and JSONB array operations.
+   * Delegates to the upsert_project_state RPC for atomicity.
    */
   async findOneAndUpdate(
     query: Partial<Pick<IProjectState, 'projectId'>>,
@@ -88,72 +101,36 @@ export const ProjectState = {
       $pull?: { openQuestions?: { id: string } }
       $inc?:  { version?: number }
     },
-    options?: { upsert?: boolean },
+    _options?: { upsert?: boolean },
   ): Promise<IProjectState | null> {
     if (!query.projectId) return null
-    const ref = db.collection(COL).doc(query.projectId)
 
-    return db.runTransaction(async (t) => {
-      const snap = await t.get(ref)
+    const setData: Record<string, unknown> = {}
+    if (update.$set?.architecture) setData.architecture = update.$set.architecture
+    if (update.$set?.conventions)  setData.conventions  = update.$set.conventions
+    if (update.$set?.dependencies) setData.dependencies = update.$set.dependencies
+    if (update.$set?.activeTask !== undefined) setData.active_task = update.$set.activeTask
 
-      if (!snap.exists) {
-        if (!options?.upsert) return null
-        const now = new Date()
-        const newDoc = {
-          id:            uuidv4(),
-          projectId:     query.projectId!,
-          version:       1,
-          architecture:  {},
-          conventions:   {},
-          dependencies:  {},
-          openQuestions: [],
-          reviewLog:     [],
-          activeTask:    null,
-          createdAt:     now,
-          updatedAt:     now,
-          ...(update.$set ?? {}),
-        }
-        t.set(ref, newDoc)
-        return fromDoc(newDoc, ref.id)
-      }
-
-      const data = snap.data()!
-      const firestoreUpdate: Record<string, unknown> = { updatedAt: new Date() }
-
-      if (update.$set) {
-        Object.assign(firestoreUpdate, update.$set)
-      }
-      if (update.$inc?.version !== undefined) {
-        firestoreUpdate.version = FieldValue.increment(update.$inc.version)
-      }
-      if (update.$push?.reviewLog !== undefined) {
-        firestoreUpdate.reviewLog = FieldValue.arrayUnion(update.$push.reviewLog)
-      }
-      if (update.$push?.openQuestions !== undefined) {
-        firestoreUpdate.openQuestions = FieldValue.arrayUnion(update.$push.openQuestions)
-      }
-      if (update.$pull?.openQuestions !== undefined) {
-        const existing = (data.openQuestions ?? []) as Array<{ id: string }>
-        const removed  = existing.filter(
-          (q) => q.id !== update.$pull!.openQuestions!.id,
-        )
-        firestoreUpdate.openQuestions = removed
-      }
-
-      t.update(ref, firestoreUpdate)
-
-      const merged = {
-        ...data,
-        ...firestoreUpdate,
-        version: (data.version ?? 0) + (update.$inc?.version ?? 0),
-      }
-      return fromDoc(merged, snap.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabaseAdmin.rpc as any)('upsert_project_state', {
+      p_project_id:       query.projectId,
+      p_set_data:         setData,
+      p_push_review:      update.$push?.reviewLog     ?? null,
+      p_push_question:    update.$push?.openQuestions ?? null,
+      p_pull_question_id: update.$pull?.openQuestions?.id ?? null,
+      p_inc_version:      update.$inc?.version ?? 0,
     })
+
+    if (error || !data || (data as unknown[]).length === 0) return null
+    return fromRow((data as Record<string, unknown>[])[0])
   },
 
   async deleteOne(query: Partial<Pick<IProjectState, 'projectId'>>): Promise<void> {
     if (!query.projectId) return
-    await db.collection(COL).doc(query.projectId).delete()
+    await supabaseAdmin
+      .from('vf_project_states')
+      .delete()
+      .eq('project_id', query.projectId)
   },
 }
 
