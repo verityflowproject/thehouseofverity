@@ -269,7 +269,7 @@ CREATE OR REPLACE FUNCTION provision_vf_user()
 RETURNS TRIGGER AS $$
 DECLARE
   _plan_limit INTEGER := 50; -- free plan default
-  _signup_credits INTEGER := 100; -- adjust to match SIGNUP_FREE_CREDITS in credit-costs.ts
+  _signup_credits INTEGER := 50; -- must match SIGNUP_FREE_CREDITS in lib/credit-costs.ts
   _new_user_id UUID := gen_random_uuid();
   _now TIMESTAMPTZ := now();
 BEGIN

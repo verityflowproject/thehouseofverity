@@ -29,10 +29,6 @@ function getSupabaseAdmin(): any {
   if (!supabaseUrl)    throw new Error('[VerityFlow] NEXT_PUBLIC_SUPABASE_URL is not set.')
   if (!serviceRoleKey) throw new Error('[VerityFlow] SUPABASE_SERVICE_ROLE_KEY is not set.')
 
-  // #region agent log
-  fetch('http://127.0.0.1:7821/ingest/a44fed3a-03ca-4e9d-ba79-bbb326c6d144',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f15820'},body:JSON.stringify({sessionId:'f15820',location:'supabase-server.ts:getSupabaseAdmin',message:'Supabase admin client initializing',data:{urlSet:!!supabaseUrl,keySet:!!serviceRoleKey},hypothesisId:'B',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   const client = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -40,9 +36,7 @@ function getSupabaseAdmin(): any {
     },
   })
 
-  if (process.env.NODE_ENV !== 'production') {
-    globalForSupabase.supabaseAdmin = client
-  }
+  globalForSupabase.supabaseAdmin = client
 
   return client
 }

@@ -11,6 +11,8 @@ import { createMiddlewareClient } from '@/lib/db/supabase-middleware'
 
 // ─── Route lists ─────────────────────────────────────────────────────────────
 
+// Routes that anyone (authenticated or not) may visit.
+// NOTE: /dashboard is intentionally NOT here — it requires authentication.
 const PUBLIC_ROUTES = [
   '/',
   '/login',
@@ -30,14 +32,16 @@ const PUBLIC_ROUTES = [
   '/changelog',
   '/status',
   '/compare',
-  '/dashboard',
 ]
 
+// Auth pages that authenticated users should be bounced away from.
 const AUTH_ROUTES = ['/login', '/signup', '/register']
 
 function isPublicRoute(path: string): boolean {
   if (PUBLIC_ROUTES.includes(path)) return true
   if (path.startsWith('/api/auth/'))  return true
+  if (path.startsWith('/blog/'))      return true
+  if (path.startsWith('/docs/'))      return true
   if (
     path.startsWith('/_next/') ||
     path.startsWith('/static/') ||
@@ -68,6 +72,12 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
+  // Redirect logged-in users away from auth pages before the public-route check
+  // so this logic is never skipped by an early return.
+  if (session && isAuthRoute(pathname)) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
   if (isPublicRoute(pathname)) {
     return response
   }
@@ -76,10 +86,6 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
-  }
-
-  if (isAuthRoute(pathname)) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return response

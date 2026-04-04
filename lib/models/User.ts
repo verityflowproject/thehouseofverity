@@ -22,6 +22,8 @@ const PLAN_LIMITS: Record<Plan, number> = {
 
 export interface IUser {
   readonly id: string
+  /** auth.users.id — the Supabase Auth UUID. Required when creating a row. */
+  authUserId:  string
   email:       string
   name?:       string
   image?:      string
@@ -61,6 +63,7 @@ type UserUpdate = Partial<Omit<IUser, 'id'>> & {
 function fromRow(row: Record<string, unknown>): IUser {
   return {
     id:                   row.id as string,
+    authUserId:           row.auth_user_id as string,
     email:                row.email as string,
     name:                 row.name  as string | undefined,
     image:                row.image as string | undefined,
@@ -89,6 +92,7 @@ function toColumns(update: Omit<UserUpdate, '$inc'>): Record<string, unknown> {
   const u = update as Record<string, unknown>
 
   const keys: Record<string, string> = {
+    authUserId:           'auth_user_id',
     email:                'email',
     name:                 'name',
     image:                'image',
@@ -149,6 +153,7 @@ export const User = {
     const plan = (data.plan ?? 'free') as Plan
 
     const row = {
+      auth_user_id:           data.authUserId,
       email:                  (data.email ?? '').toLowerCase().trim(),
       name:                   data.name,
       image:                  data.image,

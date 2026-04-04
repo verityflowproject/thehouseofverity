@@ -17,6 +17,15 @@ const nextConfig = {
     maxInactiveAge: 10000,
     pagesBufferLength: 2,
   },
+  async redirects() {
+    return [
+      {
+        source:      '/signup',
+        destination: '/register',
+        permanent:   true,
+      },
+    ]
+  },
   async headers() {
     return [
       {
