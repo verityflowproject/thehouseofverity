@@ -59,12 +59,12 @@ export function ProjectCard({ project, onDelete }) {
 
     setIsDeleting(true)
     try {
-      const res = await fetch(`/api/projects/${project._id}`, {
+      const res = await fetch(`/api/projects?id=${project.id}`, {
         method: 'DELETE'
       })
       
       if (res.ok) {
-        onDelete?.(project._id)
+        onDelete?.(project.id)
       } else {
         alert('Failed to delete project')
       }
@@ -82,7 +82,7 @@ export function ProjectCard({ project, onDelete }) {
 
   return (
     <Link
-      href={`/dashboard/projects/${project._id}`}
+      href={`/dashboard/projects/${project.id}`}
       className="group relative block bg-gray-900/50 border border-gray-800 hover:border-gray-700 rounded-xl p-6 transition-all hover:bg-gray-900/70 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10"
       onMouseEnter={() => setShowDelete(true)}
       onMouseLeave={() => setShowDelete(false)}
