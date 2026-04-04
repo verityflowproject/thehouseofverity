@@ -14,7 +14,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/db/supabase-server'
+import { supabaseAdmin, table } from '@/lib/db/supabase-server'
 import { SIGNUP_FREE_CREDITS } from '@/lib/credit-costs'
 
 export async function GET(request: NextRequest) {
@@ -51,6 +51,9 @@ export async function GET(request: NextRequest) {
       // never broken by a missing trigger or a transient DB error.
       try {
         const { data: { user } } = await supabase.auth.getUser()
+        // #region agent log
+        fetch('http://127.0.0.1:7821/ingest/a44fed3a-03ca-4e9d-ba79-bbb326c6d144',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fdd754'},body:JSON.stringify({sessionId:'fdd754',location:'callback/route.ts:getUser',message:'Auth user resolved',data:{userId:user?.id,email:user?.email,hasUser:!!user},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         if (user) {
           const { data: existing } = await supabaseAdmin
             .from('vf_users')
@@ -58,13 +61,17 @@ export async function GET(request: NextRequest) {
             .eq('auth_user_id', user.id)
             .maybeSingle()
 
+          // #region agent log
+          fetch('http://127.0.0.1:7821/ingest/a44fed3a-03ca-4e9d-ba79-bbb326c6d144',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fdd754'},body:JSON.stringify({sessionId:'fdd754',location:'callback/route.ts:profileCheck',message:'Profile existence check',data:{existingProfileId:existing?.id,profileExists:!!existing},hypothesisId:'B',timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+
           if (!existing) {
             const now = new Date().toISOString()
             const cycleStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
             const cycleEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()
 
-            const { data: newProfile, error: insertError } = await supabaseAdmin
-              .from('vf_users')
+            // Use table() helper (returns any) to avoid Supabase untyped-schema TS error
+            const { data: newProfile, error: insertError } = await table('vf_users')
               .insert({
                 auth_user_id:           user.id,
                 email:                  (user.email ?? '').toLowerCase(),
@@ -87,19 +94,27 @@ export async function GET(request: NextRequest) {
               .select('id')
               .single()
 
+            // #region agent log
+            fetch('http://127.0.0.1:7821/ingest/a44fed3a-03ca-4e9d-ba79-bbb326c6d144',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fdd754'},body:JSON.stringify({sessionId:'fdd754',location:'callback/route.ts:insertProfile',message:'vf_users insert result',data:{newProfileId:newProfile?.id,insertError:insertError?.message??null},hypothesisId:'B',timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+
             if (insertError) {
               console.error('[Auth Callback] Failed to provision vf_users:', insertError)
             } else if (newProfile) {
               // Record the signup credit grant
-              await supabaseAdmin.from('vf_credit_transactions').insert({
-                user_id:      newProfile.id,
-                type:         'signup_grant',
-                amount:       SIGNUP_FREE_CREDITS,
-                balance_after: SIGNUP_FREE_CREDITS,
-                description:  `Welcome bonus — ${SIGNUP_FREE_CREDITS} free credits to get started`,
-                created_at:   now,
-                updated_at:   now,
-              })
+              const { error: txError } = await table('vf_credit_transactions')
+                .insert({
+                  user_id:       newProfile.id,
+                  type:          'signup_grant',
+                  amount:        SIGNUP_FREE_CREDITS,
+                  balance_after: SIGNUP_FREE_CREDITS,
+                  description:   `Welcome bonus — ${SIGNUP_FREE_CREDITS} free credits to get started`,
+                  created_at:    now,
+                  updated_at:    now,
+                })
+              // #region agent log
+              fetch('http://127.0.0.1:7821/ingest/a44fed3a-03ca-4e9d-ba79-bbb326c6d144',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fdd754'},body:JSON.stringify({sessionId:'fdd754',location:'callback/route.ts:creditTx',message:'Signup credit grant result',data:{txError:txError?.message??null,credits:SIGNUP_FREE_CREDITS},hypothesisId:'B',timestamp:Date.now()})}).catch(()=>{});
+              // #endregion
             }
           }
         }
@@ -107,6 +122,9 @@ export async function GET(request: NextRequest) {
         // Do not block the redirect if provisioning fails — the user still has
         // a valid Supabase session and the dashboard will surface any issue.
         console.error('[Auth Callback] Profile provisioning error:', provisionError)
+        // #region agent log
+        fetch('http://127.0.0.1:7821/ingest/a44fed3a-03ca-4e9d-ba79-bbb326c6d144',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fdd754'},body:JSON.stringify({sessionId:'fdd754',location:'callback/route.ts:catch',message:'Provisioning caught exception',data:{error:String(provisionError)},hypothesisId:'C',timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
       }
 
       return NextResponse.redirect(`${origin}${safeNext}`)
