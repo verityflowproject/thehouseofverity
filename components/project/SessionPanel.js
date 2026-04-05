@@ -29,7 +29,7 @@ function parseSseChunk(raw) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function SessionPanel({ projectId, onOutputsReady }) {
+export default function SessionPanel({ projectId, onOutputsReady, onSessionComplete }) {
   const [prompt, setPrompt]               = useState('')
   const [isRunning, setIsRunning]         = useState(false)
   const [events, setEvents]               = useState([])
@@ -175,6 +175,15 @@ export default function SessionPanel({ projectId, onOutputsReady }) {
         if (allOutputs.length > 0) {
           onOutputsReady?.(allOutputs, serverEvent.sessionId)
         }
+
+        // Notify parent with cost transparency data
+        onSessionComplete?.({
+          sessionId:       serverEvent.sessionId,
+          costTransparency: serverEvent.costTransparency,
+          credits:         serverEvent.credits,
+          outputs:         allOutputs,
+        })
+
         return { feedEvents: finalFeedEvents, done: true }
       }
 

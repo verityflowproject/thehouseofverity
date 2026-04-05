@@ -65,6 +65,54 @@ export default function ChangelogPage() {
 
           {/* Timeline */}
           <div className="space-y-8">
+            {/* Version 0.3.0 */}
+            <div className="relative pl-8 border-l-2 border-indigo-500/30">
+              <div className="absolute -left-2 top-0 w-4 h-4 bg-indigo-500 rounded-full" />
+              
+              <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  <span className="px-3 py-1 bg-gray-800 rounded-full text-sm font-mono text-gray-300">
+                    v0.3.0
+                  </span>
+                  <span className="text-sm text-gray-500">April 2026</span>
+                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs rounded-full border border-indigo-500/30">
+                    Feature update
+                  </span>
+                </div>
+
+                <ul className="space-y-3 text-gray-300">
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Session history persistence — all council sessions are now saved to the database and accessible from the project sidebar, surviving page reloads and new visits</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Export options — download session output as .txt, ZIP archive of all parsed files, or copy individual files from the Files view</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Session cost breakdown — transparent per-model credit cost details now appear below the output panel after every completed session</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Project Brief editor — add persistent instructions in the project sidebar; the full council reads your brief on every session for consistent context</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Settings wired into the app — compact mode, welcome banner toggle, default output format, and auto-download preferences now take effect across the dashboard</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>GPT model updated to gpt-5.4 — corrected model identifier resolves the configuration error that prevented GPT-based tasks from running</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Live ProjectState merge — architecture decisions, dependencies, and review logs from each session are now accumulated into the project's persistent state</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
             {/* Version 0.2.0 */}
             <div className="relative pl-8 border-l-2 border-indigo-500/30">
               <div className="absolute -left-2 top-0 w-4 h-4 bg-indigo-500 rounded-full" />

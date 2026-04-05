@@ -20,6 +20,7 @@
 import { v4 as uuidv4 } from 'uuid'
 
 import { getProjectState, setProjectState } from '@/lib/utils/project-state'
+import { Project } from '@/lib/models/Project'
 import { buildTaskQueue } from './queue-builder'
 import { checkHallucinationFirewall } from './hallucination-firewall'
 import { routeToModel } from '@/lib/adapters'
@@ -240,8 +241,22 @@ export async function runOrchestrator(
 
   console.log(`[Orchestrator] Starting session ${sessionId} for project ${projectId}`)
 
+  // 1b. Load project brief and prepend it to the user prompt if present
+  let effectivePrompt = userPrompt
+  try {
+    const project = await Project.findOne({ id: projectId })
+    if (project && (project as Record<string, unknown>).brief) {
+      const brief = (project as Record<string, unknown>).brief as string
+      if (brief.trim()) {
+        effectivePrompt = `[Project Brief / Persistent Context]\n${brief.trim()}\n\n[Current Task]\n${userPrompt}`
+      }
+    }
+  } catch {
+    // Non-fatal — continue without brief
+  }
+
   // 2. Build task queue
-  const taskQueue = buildTaskQueue(projectId, userPrompt, projectState)
+  const taskQueue = buildTaskQueue(projectId, effectivePrompt, projectState)
   console.log(`[Orchestrator] Built queue with ${taskQueue.length} tasks`)
   onProgress?.({
     type: 'queue_built',
@@ -455,12 +470,90 @@ export async function runOrchestrator(
     0
   )
 
-  // 10. Update ProjectState (placeholder - full state update logic would go here)
-  const updatedState = await setProjectState({
+  // 10. Update ProjectState — merge new insights from this session
+  const now = new Date().toISOString()
+  const draft = {
     ...projectState,
-    version: (projectState.version ?? 0) + 1,
-    updatedAt: new Date().toISOString(),
-  })
+    version:   (projectState.version ?? 0) + 1,
+    updatedAt: now,
+    activeTask: null,
+  } as ReturnType<typeof Object.assign>
+
+  // 10a. Extract any new dependencies mentioned by the firewall/Perplexity response
+  const researchResponse = responses.find((r) => r.taskType === 'research' && r.model === 'perplexity')
+  if (researchResponse?.output) {
+    // Parse package names from lines like "- package@version" or "npm install package"
+    const pkgMatches = researchResponse.output.matchAll(/(?:npm install|yarn add)\s+([\w@/.-]+)/g)
+    const newPackages: Array<{
+      name: string; version: string; purpose: string;
+      devDependency: boolean; addedBy: 'perplexity'; addedAt: string
+    }> = []
+    for (const match of pkgMatches) {
+      const raw   = match[1]
+      const parts = raw.split('@')
+      const name    = parts[0]
+      const version = parts[1] ?? 'latest'
+      if (name && !projectState.dependencies.packages.some((p) => p.name === name)) {
+        newPackages.push({
+          name, version, purpose: 'Identified during research phase',
+          devDependency: false, addedBy: 'perplexity', addedAt: now,
+        })
+      }
+    }
+    if (newPackages.length > 0) {
+      draft.dependencies = {
+        ...projectState.dependencies,
+        packages: [...projectState.dependencies.packages, ...newPackages],
+      }
+    }
+  }
+
+  // 10b. Append review log entries from the review pipeline
+  if (reviewResult?.reviews && reviewResult.reviews.length > 0) {
+    const newReviewEntries = reviewResult.reviews.map((rev) => ({
+      id:           rev.id ?? uuidv4(),
+      model:        'gpt' as const,
+      decision:     rev.arbitrationRequired ? 'Needs arbitration' : rev.approved ? 'Accepted' : 'Needs revision',
+      rationale:    (rev.flaggedIssues ?? []).map((i: { message?: string } | string) =>
+                      typeof i === 'string' ? i : i.message ?? ''
+                    ).join('; ') || 'No issues found',
+      timestamp:    now,
+      taskType:     rev.taskType ?? 'implementation',
+      severity:     rev.arbitrationRequired ? 'high' : rev.approved ? 'low' : 'medium',
+      relatedFiles: [],
+      taskId:       rev.taskId ?? uuidv4(),
+      confidence:   rev.approved ? 0.9 : 0.6,
+    }))
+    draft.reviewLog = [...(projectState.reviewLog ?? []), ...newReviewEntries].slice(-100)
+  }
+
+  // 10c. Extract architecture decisions from the Claude architect response
+  const archResponse = responses.find((r) => r.model === 'claude' && r.taskType === 'architecture')
+  if (archResponse?.output) {
+    // Extract file paths mentioned in the output (e.g. src/components/Foo.tsx)
+    const filePaths = [...new Set([
+      ...archResponse.output.matchAll(/(?:^|\s)((?:src|app|lib|components|pages|api|hooks|utils)\/[\w/-]+\.\w+)/gm),
+    ].map((m) => m[1]))]
+
+    if (filePaths.length > 0) {
+      const existingPaths = new Set(projectState.architecture.fileTree.map((f) => f.path))
+      const newFileNodes = filePaths
+        .filter((p) => !existingPaths.has(p))
+        .map((p) => ({
+          path:     p,
+          type:     'file' as const,
+          language: p.split('.').pop() ?? 'ts',
+        }))
+      if (newFileNodes.length > 0) {
+        draft.architecture = {
+          ...projectState.architecture,
+          fileTree: [...projectState.architecture.fileTree, ...newFileNodes],
+        }
+      }
+    }
+  }
+
+  const updatedState = await setProjectState(draft)
 
   const durationMs = Date.now() - startTime
 

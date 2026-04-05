@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useUser } from '@/hooks/use-user'
+import { useSettings } from '@/hooks/use-settings'
 import { Plus, Folder, Coins } from 'lucide-react'
 import { 
   ProjectCard, 
@@ -12,6 +13,7 @@ import {
 
 export default function DashboardPage() {
   const { data: session, status } = useUser()
+  const settings = useSettings()
   const [projects, setProjects] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
@@ -134,15 +136,17 @@ export default function DashboardPage() {
 
       {/* Dashboard Content - Always Visible but Blurred for Preview */}
       <div className={isPreviewMode ? 'pointer-events-none filter blur-sm' : ''}>
-        {/* Personalized Greeting */}
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Welcome back, {isPreviewMode ? 'Guest' : firstName}
-          </h1>
-          <p className="text-gray-400">
-            Continue building with your AI council
-          </p>
-        </div>
+        {/* Personalized Greeting — hidden when showWelcomeBanner is off */}
+        {settings.showWelcomeBanner !== false && (
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">
+              Welcome back, {isPreviewMode ? 'Guest' : firstName}
+            </h1>
+            <p className="text-gray-400">
+              Continue building with your AI council
+            </p>
+          </div>
+        )}
 
       {/* Usage Warning Banner */}
       <UsageWarningBanner 

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Copy, Check, FileCode2, Eye, Folder, FolderOpen, File } from 'lucide-react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Copy, Check, FileCode2, Eye, Folder, FolderOpen, File, Download, ChevronDown } from 'lucide-react'
+import { useSettings } from '@/hooks/use-settings'
 
 const MODEL_LABELS = {
   claude:     'Claude · Architect',
@@ -17,19 +18,16 @@ const MODEL_LABELS = {
 function extractHtml(content) {
   if (!content) return null
 
-  // Full HTML document
   if (/<!DOCTYPE\s+html/i.test(content) || /<html[\s>]/i.test(content)) {
     return content
   }
 
-  // HTML code-fence blocks
   const fenceMatch = content.match(/```html\s*([\s\S]*?)```/i)
   if (fenceMatch) {
     const fragment = fenceMatch[1].trim()
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:1rem;background:#fff;color:#111}</style></head><body>${fragment}</body></html>`
   }
 
-  // Bare HTML tags suggest renderable content
   if (/<(div|section|main|header|nav|article|p|h[1-6]|ul|ol|table|form)[\s>]/i.test(content)) {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:1rem;background:#fff;color:#111}</style></head><body>${content}</body></html>`
   }
@@ -39,23 +37,12 @@ function extractHtml(content) {
 
 // ── Codebase file parser ──────────────────────────────────────────────────────
 
-/**
- * Parse all outputs and split them into individual files.
- * Recognises patterns like:
- *   ```typescript:src/components/Button.tsx
- *   ```ts src/components/Button.tsx
- *   // file: src/components/Button.tsx
- *   // --- src/components/Button.tsx ---
- */
 function parseFilesFromOutputs(outputs) {
   const files = []
 
   const PATTERNS = [
-    // ```lang:path or ```lang path
     /^```[\w+.-]*[: ]+([\w./-]+\.\w+)\s*\n([\s\S]*?)```/gm,
-    // // file: path
     /^\/\/ file: ([\w./-]+\.\w+)\s*\n([\s\S]*?)(?=^\/\/ file: |$)/gm,
-    // // --- path ---
     /^\/\/ --- ([\w./-]+\.\w+) ---\s*\n([\s\S]*?)(?=^\/\/ --- |$)/gm,
   ]
 
@@ -71,7 +58,6 @@ function parseFilesFromOutputs(outputs) {
         if (path && body) {
           const ext = path.split('.').pop()?.toLowerCase() ?? ''
           const language = EXT_LANG[ext] ?? ext
-          // Deduplicate by path (last write wins)
           const existing = files.findIndex((f) => f.path === path)
           if (existing >= 0) {
             files[existing] = { path, content: body, language, source: output.taskType }
@@ -82,7 +68,6 @@ function parseFilesFromOutputs(outputs) {
       }
     }
 
-    // If no file patterns found in this output, treat the whole output as one file
     if (files.length === 0 && content.trim()) {
       const guessedName = `${output.taskType || 'output'}.${output.model === 'perplexity' ? 'md' : 'ts'}`
       files.push({ path: guessedName, content: content.trim(), language: 'typescript', source: output.taskType })
@@ -123,7 +108,6 @@ function FileTreeNode({ name, node, selectedPath, onSelect, depth = 0 }) {
 
   if (isDir) {
     const children = Object.entries(node.__children).sort(([, a], [, b]) => {
-      // Dirs first
       if (a.__type !== b.__type) return a.__type === 'dir' ? -1 : 1
       return 0
     })
@@ -169,21 +153,55 @@ function FileTreeNode({ name, node, selectedPath, onSelect, depth = 0 }) {
   )
 }
 
+// ── Export helpers ────────────────────────────────────────────────────────────
+
+function downloadText(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain' })
+  const url  = URL.createObjectURL(blob)
+  const a    = Object.assign(document.createElement('a'), { href: url, download: filename })
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove() }, 200)
+}
+
+async function downloadZip(files, sessionId) {
+  try {
+    // Dynamic import so JSZip is only loaded when needed
+    const JSZip = (await import('jszip')).default
+    const zip   = new JSZip()
+    for (const file of files) {
+      zip.file(file.path, file.content)
+    }
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const name = `session-${sessionId?.slice(0, 8) ?? 'output'}.zip`
+    downloadText(name, '')  // dummy — override:
+    const url  = URL.createObjectURL(blob)
+    const a    = Object.assign(document.createElement('a'), { href: url, download: name })
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove() }, 200)
+  } catch (err) {
+    console.error('[OutputPreview] ZIP export failed:', err)
+  }
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function OutputPreview({ outputs, sessionId }) {
-  const [copied, setCopied]         = useState(false)
+  const settings = useSettings()
+
+  const [copied, setCopied]           = useState(false)
   const [activeOutputTab, setActiveOutputTab] = useState(0)
-  const [viewMode, setViewMode]     = useState('code')   // 'code' | 'preview' | 'files'
+  const [viewMode, setViewMode]       = useState(settings.defaultOutputFormat ?? 'code')
   const [selectedFile, setSelectedFile] = useState(null)
+  const [exportOpen, setExportOpen]   = useState(false)
+  const exportRef = useRef(null)
 
   const hasOutputs = outputs && outputs.length > 0
   const active     = hasOutputs ? outputs[activeOutputTab] ?? outputs[0] : null
 
-  // Parse files from all outputs (memoised — only recomputes when outputs change)
   const parsedFiles = useMemo(() => parseFilesFromOutputs(outputs ?? []), [outputs])
   const fileTree    = useMemo(() => buildTree(parsedFiles), [parsedFiles])
-
   const htmlContent = useMemo(() => extractHtml(active?.content ?? ''), [active])
 
   const displayContent = viewMode === 'files' && selectedFile
@@ -192,6 +210,32 @@ export default function OutputPreview({ outputs, sessionId }) {
 
   const lines = displayContent.split('\n')
 
+  // Sync default view mode from settings when settings load
+  useEffect(() => {
+    if (settings.defaultOutputFormat) {
+      setViewMode(settings.defaultOutputFormat)
+    }
+  }, [settings.defaultOutputFormat])
+
+  // Auto-download when outputs first arrive (if setting is on)
+  useEffect(() => {
+    if (!settings.autoDownloadOutput || !hasOutputs) return
+    const content = outputs.map((o) => `=== ${o.taskType} (${o.model}) ===\n${o.content}`).join('\n\n')
+    downloadText(`session-${sessionId?.slice(0, 8) ?? 'output'}.txt`, content)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setExportOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   const handleCopy = async () => {
     if (!displayContent) return
     await navigator.clipboard.writeText(displayContent)
@@ -199,11 +243,29 @@ export default function OutputPreview({ outputs, sessionId }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Auto-select first file when switching to files view
   const handleViewMode = (mode) => {
     setViewMode(mode)
     if (mode === 'files' && parsedFiles.length > 0 && !selectedFile) {
       setSelectedFile(parsedFiles[0])
+    }
+  }
+
+  const handleExport = async (type) => {
+    setExportOpen(false)
+    if (type === 'txt') {
+      const content = outputs.map((o) => `=== ${o.taskType} (${o.model}) ===\n${o.content}`).join('\n\n')
+      downloadText(`session-${sessionId?.slice(0, 8) ?? 'output'}.txt`, content)
+    } else if (type === 'zip') {
+      await downloadZip(parsedFiles.length > 0 ? parsedFiles : outputs.map((o, i) => ({
+        path: `output-${i + 1}-${o.taskType}.txt`,
+        content: o.content,
+      })), sessionId)
+    } else if (type === 'copy-file' && selectedFile) {
+      await navigator.clipboard.writeText(selectedFile.content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } else if (type === 'copy-all') {
+      await handleCopy()
     }
   }
 
@@ -232,7 +294,7 @@ export default function OutputPreview({ outputs, sessionId }) {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0 gap-2">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800 flex-shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <FileCode2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
           <span className="text-sm font-medium text-white whitespace-nowrap">Preview</span>
@@ -243,55 +305,74 @@ export default function OutputPreview({ outputs, sessionId }) {
 
         {/* View mode toggle */}
         <div className="flex items-center gap-1 bg-gray-800/60 rounded-lg p-0.5 flex-shrink-0">
-          <button
-            onClick={() => handleViewMode('code')}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-              viewMode === 'code' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <FileCode2 className="w-3 h-3" />
-            Code
-          </button>
-          <button
-            onClick={() => handleViewMode('preview')}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-              viewMode === 'preview' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-            title="Rendered HTML preview"
-          >
-            <Eye className="w-3 h-3" />
-            Preview
-          </button>
-          <button
-            onClick={() => handleViewMode('files')}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-              viewMode === 'files' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-            title="Codebase file explorer"
-          >
-            <Folder className="w-3 h-3" />
-            Files
-            {parsedFiles.length > 0 && (
-              <span className="ml-0.5 px-1 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] leading-none">
-                {parsedFiles.length}
-              </span>
-            )}
-          </button>
+          {['code', 'preview', 'files'].map((mode) => (
+            <button
+              key={mode}
+              onClick={() => handleViewMode(mode)}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                viewMode === mode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {mode === 'code' && <FileCode2 className="w-3 h-3" />}
+              {mode === 'preview' && <Eye className="w-3 h-3" />}
+              {mode === 'files' && <Folder className="w-3 h-3" />}
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              {mode === 'files' && parsedFiles.length > 0 && (
+                <span className="ml-0.5 px-1 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] leading-none">
+                  {parsedFiles.length}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Copy button (code + files views) */}
-        {viewMode !== 'preview' && (
+        {/* Export / copy dropdown */}
+        <div ref={exportRef} className="relative flex-shrink-0">
           <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors flex-shrink-0"
+            onClick={() => setExportOpen((v) => !v)}
+            className="flex items-center gap-1 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors"
+            title="Export options"
           >
             {copied ? (
-              <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">Copied</span></>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
-              <><Copy className="w-3.5 h-3.5" />Copy</>
+              <Download className="w-3.5 h-3.5" />
             )}
+            <ChevronDown className="w-3 h-3 opacity-60" />
           </button>
-        )}
+
+          {exportOpen && (
+            <div className="absolute right-0 top-full mt-1 w-44 bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
+              <button
+                onClick={() => handleExport('copy-all')}
+                className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy all
+              </button>
+              {viewMode === 'files' && selectedFile && (
+                <button
+                  onClick={() => handleExport('copy-file')}
+                  className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Copy this file
+                </button>
+              )}
+              <div className="h-px bg-gray-800 my-1" />
+              <button
+                onClick={() => handleExport('txt')}
+                className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Download .txt
+              </button>
+              <button
+                onClick={() => handleExport('zip')}
+                className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Download .zip
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Output tab bar (code + preview views only) */}
@@ -313,7 +394,7 @@ export default function OutputPreview({ outputs, sessionId }) {
         </div>
       )}
 
-      {/* Model attribution (code + preview views) */}
+      {/* Model attribution */}
       {viewMode !== 'files' && active?.model && (
         <div className="px-4 py-2 border-b border-gray-800/50 flex-shrink-0">
           <p className="text-xs text-gray-500">

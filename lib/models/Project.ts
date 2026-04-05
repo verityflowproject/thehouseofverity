@@ -22,6 +22,7 @@ export interface IProject {
   userId:           string
   name:             string
   description?:     string
+  brief?:           string
   techStack:        string[]
   status:           ProjectStatus
   activeSessionId?: string
@@ -43,6 +44,7 @@ function fromRow(row: Record<string, unknown>): IProject {
     userId:          row.user_id        as string,
     name:            row.name           as string,
     description:     row.description    as string | undefined,
+    brief:           (row.brief         as string | undefined) ?? '',
     techStack:       (row.tech_stack    as string[]) ?? [],
     status:          (row.status        as ProjectStatus) ?? 'draft',
     activeSessionId: row.active_session_id as string | undefined,
@@ -61,6 +63,7 @@ function toColumns(update: Omit<ProjectUpdate, '$inc'>): Record<string, unknown>
     userId:          'user_id',
     name:            'name',
     description:     'description',
+    brief:           'brief',
     techStack:       'tech_stack',
     status:          'status',
     activeSessionId: 'active_session_id',

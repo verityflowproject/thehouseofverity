@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS vf_projects (
   user_id           UUID NOT NULL REFERENCES vf_users(id) ON DELETE CASCADE,
   name              TEXT NOT NULL DEFAULT '',
   description       TEXT,
+  brief             TEXT DEFAULT '',
   tech_stack        TEXT[] DEFAULT '{}',
   status            TEXT NOT NULL DEFAULT 'draft'
                       CHECK (status IN ('draft','building','review','complete','error','active')),
@@ -114,6 +115,21 @@ CREATE TABLE IF NOT EXISTS vf_usage_logs (
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- vf_sessions: stores all council session outputs for a project
+CREATE TABLE IF NOT EXISTS vf_sessions (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id     TEXT UNIQUE NOT NULL,
+  project_id     UUID NOT NULL REFERENCES vf_projects(id) ON DELETE CASCADE,
+  user_id        UUID NOT NULL REFERENCES vf_users(id) ON DELETE CASCADE,
+  prompt         TEXT NOT NULL,
+  outputs        JSONB NOT NULL DEFAULT '[]',
+  credits_used   INTEGER NOT NULL DEFAULT 0,
+  cost_breakdown JSONB,
+  status         TEXT NOT NULL DEFAULT 'complete',
+  duration_ms    INTEGER,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- vf_credit_transactions
 CREATE TABLE IF NOT EXISTS vf_credit_transactions (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -151,6 +167,8 @@ CREATE INDEX IF NOT EXISTS idx_vf_review_logs_project ON vf_review_logs(project_
 CREATE INDEX IF NOT EXISTS idx_vf_review_logs_session ON vf_review_logs(session_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_vf_usage_logs_user_date ON vf_usage_logs(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_vf_usage_logs_project  ON vf_usage_logs(project_id);
+CREATE INDEX IF NOT EXISTS idx_vf_sessions_project    ON vf_sessions(project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vf_sessions_user       ON vf_sessions(user_id, created_at DESC);
 
 -- ─── updated_at triggers ──────────────────────────────────────────────────────
 

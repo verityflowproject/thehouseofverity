@@ -1,7 +1,7 @@
 /**
  * lib/adapters/gpt.ts — GPT-5.4 adapter
  *
- * Uses OpenAI's Chat Completions API (client.chat.completions.create).
+ * Uses OpenAI's Chat Completions API via gpt-5.4.
  * Task-specific system prompts for implementation and review tasks.
  * Parses JSON output for review tasks to extract flagged issues.
  */
@@ -28,14 +28,14 @@ function getClient(): OpenAI {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MODEL_NAME = 'gpt-5-turbo' as const
+const MODEL_NAME = 'gpt-5.4' as const
 const MAX_TOKENS = 8192
 const TEMPERATURE = 0.7
 
-// Pricing (as of 2025, in USD per 1M tokens)
+// Pricing (as of 2026, in USD per 1M tokens)
 const PRICING = {
-  input:  5.0 / 1_000_000,
-  output: 15.0 / 1_000_000,
+  input:  2.5 / 1_000_000,
+  output: 10.0 / 1_000_000,
 }
 
 // ─── System prompts ───────────────────────────────────────────────────────────

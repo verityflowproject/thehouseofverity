@@ -23,6 +23,7 @@ import { User } from '@/lib/models/User'
 import { Project } from '@/lib/models/Project'
 import { UsageLog } from '@/lib/models/UsageLog'
 import { CreditTransaction } from '@/lib/models/CreditTransaction'
+import { Session } from '@/lib/models/Session'
 import { runOrchestrator } from '@/lib/orchestrator'
 import { UsageLimitError } from '@/lib/utils/errors'
 import { checkRateLimit, buildRateLimitHeaders } from '@/lib/middleware/rate-limit'
@@ -217,6 +218,29 @@ export async function POST(request: NextRequest) {
       { id: projectId },
       { status: 'active', lastBuiltAt: new Date(), $inc: { totalSessions: 1 } },
     )
+
+    // Save session outputs to DB for persistence
+    try {
+      await Session.create({
+        sessionId,
+        projectId,
+        userId:      user.id,
+        prompt,
+        outputs: result.responses.map((r) => ({
+          model:         r.model,
+          taskType:      r.taskType,
+          output:        r.output,
+          flaggedIssues: r.flaggedIssues,
+          tokensUsed:    r.tokensUsed,
+        })),
+        creditsUsed:   totalCreditsUsed,
+        costBreakdown: creditBreakdown,
+        status:        'complete',
+        durationMs:    result.metadata?.durationMs,
+      })
+    } catch (sessionSaveErr) {
+      console.error('[Orchestrator] Failed to save session:', sessionSaveErr)
+    }
 
     return NextResponse.json({
       success: true,
