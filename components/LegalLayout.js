@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Menu, X, ArrowLeft } from 'lucide-react'
+import { Menu, X, ArrowLeft, User } from 'lucide-react'
+import { useUser } from '@/hooks/use-user'
 
 export default function LegalLayout({ title, lastUpdated, sections, children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('')
+  const { data: session, status } = useUser()
+  const isAuthenticated = status === 'authenticated' && session?.user
 
   // Scroll spy effect
   useEffect(() => {
@@ -61,15 +64,36 @@ export default function LegalLayout({ title, lastUpdated, sections, children }) 
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
                 Pricing
               </Link>
+              <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
+                Contact
+              </Link>
             </div>
 
             <div className="hidden md:flex items-center gap-3">
-              <Link href="/login" className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors">
-                Sign in
-              </Link>
-              <Link href="/register" className="px-5 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors font-medium">
-                Get started
-              </Link>
+              {status === 'loading' ? (
+                <div className="w-24 h-8 rounded-lg bg-gray-800/50 animate-pulse" />
+              ) : isAuthenticated ? (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <div className="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-indigo-300" />
+                    </div>
+                    <span className="max-w-[160px] truncate">{session.user.email}</span>
+                  </div>
+                  <Link href="/dashboard" className="px-5 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors font-medium">
+                    Dashboard
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors">
+                    Sign in
+                  </Link>
+                  <Link href="/register" className="px-5 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors font-medium">
+                    Get started
+                  </Link>
+                </>
+              )}
             </div>
 
             <button
@@ -95,13 +119,30 @@ export default function LegalLayout({ title, lastUpdated, sections, children }) 
               <Link href="/pricing" className="block text-gray-400 hover:text-white transition-colors">
                 Pricing
               </Link>
+              <Link href="/contact" className="block text-gray-400 hover:text-white transition-colors">
+                Contact
+              </Link>
               <div className="pt-4 space-y-2">
-                <Link href="/login" className="block w-full px-4 py-2 text-center text-gray-300 hover:text-white border border-gray-700 rounded-lg transition-colors">
-                  Sign in
-                </Link>
-                <Link href="/register" className="block w-full px-5 py-2 text-center bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors font-medium">
-                  Get started
-                </Link>
+                {isAuthenticated ? (
+                  <>
+                    <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400">
+                      <User className="w-4 h-4 text-indigo-300" />
+                      <span className="truncate">{session.user.email}</span>
+                    </div>
+                    <Link href="/dashboard" className="block w-full px-5 py-2 text-center bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors font-medium">
+                      Dashboard
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/login" className="block w-full px-4 py-2 text-center text-gray-300 hover:text-white border border-gray-700 rounded-lg transition-colors">
+                      Sign in
+                    </Link>
+                    <Link href="/register" className="block w-full px-5 py-2 text-center bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors font-medium">
+                      Get started
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -211,22 +252,14 @@ export default function LegalLayout({ title, lastUpdated, sections, children }) 
                   </Link>
                 </li>
                 <li>
-                  <Link href="/docs/api" className="text-gray-400 hover:text-white transition-colors">
-                    API Reference
+                  <Link href="/docs/getting-started" className="text-gray-400 hover:text-white transition-colors">
+                    Getting Started
                   </Link>
                 </li>
                 <li>
-                  <a
-                    href="https://github.com/verityflowproject"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-1"
-                  >
-                    GitHub
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
+                  <Link href="/docs/credits" className="text-gray-400 hover:text-white transition-colors">
+                    Credit System
+                  </Link>
                 </li>
                 <li>
                   <Link href="/status" className="text-gray-400 hover:text-white transition-colors">

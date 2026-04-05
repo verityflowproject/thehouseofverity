@@ -4,111 +4,41 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Loader2, ChevronDown } from 'lucide-react'
 import ModelFeed from './ModelFeed'
 
-// Models that are shown as "thinking" during the async API call.
-// Order matches the orchestrator pipeline: firewall → architecture → implementation → review.
-const THINKING_SEQUENCE = [
-  { model: 'perplexity', delayMs: 0 },
-  { model: 'claude',     delayMs: 800 },
-  { model: 'codestral',  delayMs: 1600 },
-  { model: 'gpt',        delayMs: 2400 },
-]
-
 function ts() {
   return new Date().toISOString()
 }
 
 /**
- * Converts the raw /api/orchestrator response into a flat array of feed events.
- *
- * API shape:
- *   { result: { responses, finalOutputs, flags, tokenUsage }, credits, costTransparency }
- *
- *   responses   – ModelResponse[]   (model, taskType, output, flaggedIssues)
- *   finalOutputs – { [taskId]: string }
- *   flags       – firewall flags object
+ * Parse a raw SSE line buffer into discrete JSON events.
+ * Each SSE message is `data: <json>\n\n`.
  */
-function parseApiResponse(data) {
+function parseSseChunk(raw) {
   const events = []
-  const outputs = []
-
-  const responses   = data?.result?.responses   ?? []
-  const finalOutputs = data?.result?.finalOutputs ?? {}
-  const flags       = data?.result?.flags        ?? {}
-
-  // Perplexity firewall pass — synthesised from flags or the first perplexity response
-  const perplexityRes = responses.find((r) => r.model === 'perplexity')
-  if (perplexityRes || flags.hallucinations != null) {
-    events.push({
-      type:     'firewall',
-      verified: flags.dependenciesVerified ?? (perplexityRes ? 1 : 0),
-      blocked:  flags.hallucinations       ?? 0,
-      warnings: flags.warnings             ?? [],
-      timestamp: ts(),
-    })
-  }
-
-  // One output + optional review event per non-perplexity model response
-  for (const response of responses) {
-    if (response.model === 'perplexity') continue
-
-    // Output bubble
-    const taskOutput = finalOutputs[response.taskId] ?? response.output ?? ''
-    events.push({
-      type:      'output',
-      model:     response.model,
-      taskType:  response.taskType,
-      code:      taskOutput,
-      timestamp: ts(),
-    })
-
-    // Collect for the preview panel
-    outputs.push({
-      taskId:   response.taskId,
-      model:    response.model,
-      taskType: response.taskType,
-      content:  taskOutput,
-    })
-
-    // Review event — GPT reviews all other models' outputs
-    if (response.flaggedIssues != null) {
-      const reviewModel = response.model === 'gpt' ? 'gpt' : 'gpt'
-      events.push({
-        type:         'review',
-        model:        reviewModel,
-        authorModel:  response.model,
-        outcome:      response.flaggedIssues.length === 0 ? 'approved' : 'patched',
-        flaggedIssues: response.flaggedIssues,
-        timestamp:    ts(),
-      })
+  const lines = raw.split('\n')
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      try {
+        events.push(JSON.parse(line.slice(6)))
+      } catch {
+        // incomplete chunk — will be buffered
+      }
     }
   }
-
-  // Credit summary
-  const creditsUsed      = data?.credits?.totalCreditsUsed  ?? 0
-  const creditsRemaining = data?.credits?.remainingCredits  ?? 0
-  if (creditsUsed > 0) {
-    events.push({
-      type:              'credits',
-      creditsUsed,
-      creditsRemaining,
-      timestamp:         ts(),
-    })
-  }
-
-  return { events, outputs, creditsUsed, creditsRemaining }
+  return events
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SessionPanel({ projectId, onOutputsReady }) {
-  const [prompt, setPrompt]         = useState('')
-  const [isRunning, setIsRunning]   = useState(false)
-  const [events, setEvents]         = useState([])
+  const [prompt, setPrompt]               = useState('')
+  const [isRunning, setIsRunning]         = useState(false)
+  const [events, setEvents]               = useState([])
   const [showScrollBtn, setShowScrollBtn] = useState(false)
 
-  const feedRef         = useRef(null)
-  const textareaRef     = useRef(null)
-  const thinkingTimers  = useRef([])
+  const feedRef        = useRef(null)
+  const textareaRef    = useRef(null)
+  const readerRef      = useRef(null)   // holds the active ReadableStreamDefaultReader
+  const outputsRef     = useRef([])     // accumulate outputs during stream
 
   // Auto-scroll feed to bottom when new events arrive
   useEffect(() => {
@@ -128,23 +58,137 @@ export default function SessionPanel({ projectId, onOutputsReady }) {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' })
   }
 
-  const clearThinkingTimers = () => {
-    thinkingTimers.current.forEach(clearTimeout)
-    thinkingTimers.current = []
-  }
-
-  // Start animated thinking bubbles — one per THINKING_SEQUENCE entry
-  const startThinking = useCallback(() => {
-    THINKING_SEQUENCE.forEach(({ model, delayMs }) => {
-      const t = setTimeout(() => {
-        setEvents((prev) => [
-          ...prev,
-          { type: 'thinking', model, timestamp: ts() },
-        ])
-      }, delayMs)
-      thinkingTimers.current.push(t)
-    })
+  // Cancel any in-flight stream
+  const cancelStream = useCallback(() => {
+    if (readerRef.current) {
+      try { readerRef.current.cancel() } catch { /* ignore */ }
+      readerRef.current = null
+    }
   }, [])
+
+  // Cleanup on unmount
+  useEffect(() => () => cancelStream(), [cancelStream])
+
+  /**
+   * Map a server-sent progress event to one or more feed entries.
+   * Returns an array of feed event objects (may be empty for internal events).
+   */
+  const progressToFeedEvents = useCallback((serverEvent, sessionId) => {
+    switch (serverEvent.type) {
+      case 'task_start':
+        // Show a live "thinking" bubble only for the model that is actually running now
+        return [{
+          type:      'thinking',
+          model:     serverEvent.model,
+          taskId:    serverEvent.taskId,
+          timestamp: ts(),
+        }]
+
+      case 'task_complete': {
+        // Replace the thinking bubble for this task with the real output
+        // We mark the thinking event with __taskId so we can filter it out
+        const feedEvents = []
+        // Remove the thinking bubble for this taskId (handled in setEvents below with filter)
+        if (serverEvent.taskType !== 'research') {
+          feedEvents.push({
+            type:      'output',
+            model:     serverEvent.model,
+            taskType:  serverEvent.taskType,
+            code:      serverEvent.output,
+            __taskId:  serverEvent.taskId,
+            timestamp: ts(),
+          })
+
+          // Accumulate output for the preview panel
+          outputsRef.current = [
+            ...outputsRef.current.filter((o) => o.taskId !== serverEvent.taskId),
+            {
+              taskId:   serverEvent.taskId,
+              model:    serverEvent.model,
+              taskType: serverEvent.taskType,
+              content:  serverEvent.output,
+            },
+          ]
+          onOutputsReady?.(outputsRef.current, null)
+        }
+
+        // Inline review from flagged issues
+        if (serverEvent.flaggedIssues != null) {
+          feedEvents.push({
+            type:         'review',
+            model:        'gpt',
+            authorModel:  serverEvent.model,
+            outcome:      serverEvent.flaggedIssues.length === 0 ? 'approved' : 'patched',
+            flaggedIssues: serverEvent.flaggedIssues,
+            timestamp:    ts(),
+          })
+        }
+
+        return { removeThinkingTaskId: serverEvent.taskId, feedEvents }
+      }
+
+      case 'firewall_result':
+        return [{
+          type:      'firewall',
+          verified:  serverEvent.verified,
+          blocked:   serverEvent.blocked,
+          warnings:  serverEvent.warnings ?? [],
+          timestamp: ts(),
+        }]
+
+      case 'review_start':
+        return [{ type: 'system', message: 'GPT reviewing outputs…', timestamp: ts() }]
+
+      case 'review_complete':
+        return [{ type: 'system', message: `Review complete — ${serverEvent.approvedCount}/${serverEvent.reviewCount} approved`, timestamp: ts() }]
+
+      case 'arbitration_start':
+        return [{ type: 'system', message: `Arbitration — resolving ${serverEvent.conflictCount} conflict${serverEvent.conflictCount !== 1 ? 's' : ''}`, timestamp: ts() }]
+
+      case 'arbitration_complete':
+        return [{ type: 'system', message: `Arbitration resolved ${serverEvent.resolved} conflict${serverEvent.resolved !== 1 ? 's' : ''}`, timestamp: ts() }]
+
+      case 'complete': {
+        const creditsUsed      = serverEvent.credits?.totalCreditsUsed  ?? 0
+        const creditsRemaining = serverEvent.credits?.remainingCredits  ?? 0
+        const finalFeedEvents  = [{ type: 'system', message: 'Session complete', timestamp: ts() }]
+        if (creditsUsed > 0) {
+          finalFeedEvents.push({
+            type: 'credits',
+            creditsUsed,
+            creditsRemaining,
+            timestamp: ts(),
+          })
+        }
+        // Final outputs from the complete event
+        const finalOutputs = serverEvent.result?.finalOutputs ?? {}
+        const responses    = serverEvent.result?.responses    ?? []
+        const allOutputs   = responses
+          .filter((r) => r.taskType !== 'research')
+          .map((r) => ({
+            taskId:   r.taskId,
+            model:    r.model,
+            taskType: r.taskType,
+            content:  finalOutputs[r.taskId] ?? r.output ?? '',
+          }))
+
+        if (allOutputs.length > 0) {
+          onOutputsReady?.(allOutputs, serverEvent.sessionId)
+        }
+        return { feedEvents: finalFeedEvents, done: true }
+      }
+
+      case 'error':
+        return [{
+          type:      'error',
+          message:   serverEvent.message || 'The council failed to respond. Please try again.',
+          timestamp: ts(),
+        }]
+
+      default:
+        return []
+    }
+  }, [onOutputsReady])
 
   const handleSubmit = useCallback(async () => {
     if (!prompt.trim() || isRunning) return
@@ -152,53 +196,93 @@ export default function SessionPanel({ projectId, onOutputsReady }) {
     const userPrompt = prompt.trim()
     setPrompt('')
     setIsRunning(true)
+    outputsRef.current = []
 
-    // Start fresh session
-    setEvents([
-      { type: 'system', message: 'Council session initiated', timestamp: ts() },
-    ])
+    // Start fresh session feed
+    setEvents([{ type: 'system', message: 'Council session initiated', timestamp: ts() }])
 
-    startThinking()
+    cancelStream()
 
     try {
-      const res = await fetch('/api/orchestrator', {
+      const res = await fetch('/api/orchestrator/stream', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ projectId, prompt: userPrompt }),
       })
 
-      clearThinkingTimers()
-
-      const data = await res.json()
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
         setEvents((prev) => [
-          ...prev.filter((e) => e.type !== 'thinking'),
+          ...prev,
           { type: 'error', message: data.error || 'The council failed to respond. Please try again.', timestamp: ts() },
         ])
+        setIsRunning(false)
         return
       }
 
-      const { events: newEvents, outputs } = parseApiResponse(data)
+      const reader = res.body.getReader()
+      readerRef.current = reader
+      const decoder = new TextDecoder()
+      let buffer = ''
 
-      setEvents((prev) => [
-        ...prev.filter((e) => e.type !== 'thinking'),
-        { type: 'system', message: 'Session complete', timestamp: ts() },
-        ...newEvents,
-      ])
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
 
-      onOutputsReady?.(outputs, data?.sessionId)
+        buffer += decoder.decode(value, { stream: true })
+
+        // Process all complete SSE messages in the buffer
+        const chunks = buffer.split('\n\n')
+        buffer = chunks.pop() ?? '' // keep the last incomplete chunk
+
+        for (const chunk of chunks) {
+          if (!chunk.trim()) continue
+          const serverEvents = parseSseChunk(chunk + '\n\n')
+          for (const serverEvent of serverEvents) {
+            const result = progressToFeedEvents(serverEvent)
+
+            // Normalise result — can be array or { removeThinkingTaskId, feedEvents, done }
+            let feedEvents = []
+            let removeTaskId = null
+            let streamDone   = false
+
+            if (Array.isArray(result)) {
+              feedEvents = result
+            } else if (result && typeof result === 'object') {
+              feedEvents   = result.feedEvents ?? []
+              removeTaskId = result.removeThinkingTaskId ?? null
+              streamDone   = result.done ?? false
+            }
+
+            setEvents((prev) => {
+              let next = prev
+              // Remove the thinking bubble for this task when output arrives
+              if (removeTaskId) {
+                next = next.filter((e) => !(e.type === 'thinking' && e.taskId === removeTaskId))
+              }
+              return [...next, ...feedEvents]
+            })
+
+            if (streamDone) {
+              setIsRunning(false)
+              readerRef.current = null
+              return
+            }
+          }
+        }
+      }
     } catch (err) {
-      console.error('[SessionPanel] Orchestrator error:', err)
-      clearThinkingTimers()
+      if (err.name === 'AbortError') return
+      console.error('[SessionPanel] Stream error:', err)
       setEvents((prev) => [
-        ...prev.filter((e) => e.type !== 'thinking'),
+        ...prev,
         { type: 'error', message: 'Network error. Please check your connection and try again.', timestamp: ts() },
       ])
     } finally {
       setIsRunning(false)
+      readerRef.current = null
     }
-  }, [prompt, isRunning, projectId, startThinking, onOutputsReady])
+  }, [prompt, isRunning, projectId, cancelStream, progressToFeedEvents])
 
   const handleKeyDown = (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -206,9 +290,6 @@ export default function SessionPanel({ projectId, onOutputsReady }) {
       handleSubmit()
     }
   }
-
-  // Cleanup timers on unmount
-  useEffect(() => () => clearThinkingTimers(), [])
 
   const hasEvents = events.length > 0
 
@@ -229,7 +310,7 @@ export default function SessionPanel({ projectId, onOutputsReady }) {
             </div>
             <h3 className="text-white font-semibold text-lg mb-2">Brief the Council</h3>
             <p className="text-gray-500 text-sm max-w-xs leading-relaxed">
-              Describe what you want to build. The council will research, architect, implement, and review your request.
+              Describe what you want to build. The council will research, architect, implement, and review your request in real time.
             </p>
           </div>
         )}

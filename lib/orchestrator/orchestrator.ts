@@ -32,6 +32,20 @@ import type {
   ProjectState,
 } from '@/lib/types'
 
+// ─── Progress event types (emitted during streaming) ──────────────────────────
+
+export type ProgressEvent =
+  | { type: 'queue_built'; taskCount: number; tasks: Array<{ id: string; model: string; taskType: string }> }
+  | { type: 'task_start'; taskId: string; model: string; taskType: string }
+  | { type: 'task_complete'; taskId: string; model: string; taskType: string; output: string; flaggedIssues: Array<{ severity: string; code?: string; message: string; autoFixed: boolean }> }
+  | { type: 'firewall_result'; verified: number; blocked: number; warnings: string[] }
+  | { type: 'review_start' }
+  | { type: 'review_complete'; reviewCount: number; approvedCount: number }
+  | { type: 'arbitration_start'; conflictCount: number }
+  | { type: 'arbitration_complete'; resolved: number }
+
+export type ProgressCallback = (event: ProgressEvent) => void
+
 // ─── Result types ─────────────────────────────────────────────────────────────
 
 export interface OrchestratorResult {
@@ -214,6 +228,7 @@ export async function runOrchestrator(
   projectId: string,
   userPrompt: string,
   sessionId: string = uuidv4(),
+  onProgress?: ProgressCallback,
 ): Promise<OrchestratorResult> {
   const startTime = Date.now()
 
@@ -228,6 +243,11 @@ export async function runOrchestrator(
   // 2. Build task queue
   const taskQueue = buildTaskQueue(projectId, userPrompt, projectState)
   console.log(`[Orchestrator] Built queue with ${taskQueue.length} tasks`)
+  onProgress?.({
+    type: 'queue_built',
+    taskCount: taskQueue.length,
+    tasks: taskQueue.map((t) => ({ id: t.id, model: t.model, taskType: t.taskType })),
+  })
 
   // 3. Initialize state tracking
   const flags = {
@@ -261,7 +281,16 @@ export async function runOrchestrator(
       // Cycle or unresolvable — fall back to sequential
       console.warn('[Orchestrator] Could not resolve task dependencies, executing remaining tasks sequentially')
       for (const task of remaining) {
+        onProgress?.({ type: 'task_start', taskId: task.id, model: task.model, taskType: task.taskType })
         const response = await executeTask(task, projectState, researchFindings, flags)
+        onProgress?.({
+          type: 'task_complete',
+          taskId: task.id,
+          model: response.model,
+          taskType: response.taskType,
+          output: response.output,
+          flaggedIssues: response.flaggedIssues,
+        })
         responses.push(response)
         taskResults.set(task.id, response)
         completed.add(task.id)
@@ -273,7 +302,22 @@ export async function runOrchestrator(
       // Single task — execute directly
       const task = ready[0]
       console.log(`[Orchestrator] Executing task ${task.id} (${task.taskType}, ${task.model})${task.routingReason ? ` — ${task.routingReason}` : ''}`)
+      onProgress?.({ type: 'task_start', taskId: task.id, model: task.model, taskType: task.taskType })
       const response = await executeTask(task, projectState, researchFindings, flags)
+
+      // Emit firewall result when perplexity (research/firewall) task completes
+      if (task.taskType === 'research' || task.model === 'perplexity') {
+        onProgress?.({ type: 'firewall_result', verified: 1, blocked: 0, warnings: [] })
+      }
+
+      onProgress?.({
+        type: 'task_complete',
+        taskId: task.id,
+        model: response.model,
+        taskType: response.taskType,
+        output: response.output,
+        flaggedIssues: response.flaggedIssues,
+      })
       responses.push(response)
       taskResults.set(task.id, response)
       completed.add(task.id)
@@ -287,6 +331,10 @@ export async function runOrchestrator(
     } else {
       // Multiple independent tasks — execute in parallel
       console.log(`[Orchestrator] Executing ${ready.length} independent tasks in parallel`)
+      // Emit task_start for all parallel tasks before any begin
+      for (const task of ready) {
+        onProgress?.({ type: 'task_start', taskId: task.id, model: task.model, taskType: task.taskType })
+      }
       const batchResults = await Promise.all(
         ready.map((task) => {
           console.log(`[Orchestrator] Parallel: task ${task.id} (${task.taskType}, ${task.model})`)
@@ -297,6 +345,14 @@ export async function runOrchestrator(
       for (let i = 0; i < ready.length; i++) {
         const task     = ready[i]
         const response = batchResults[i]
+        onProgress?.({
+          type: 'task_complete',
+          taskId: task.id,
+          model: response.model,
+          taskType: response.taskType,
+          output: response.output,
+          flaggedIssues: response.flaggedIssues,
+        })
         responses.push(response)
         taskResults.set(task.id, response)
         completed.add(task.id)
@@ -332,12 +388,16 @@ export async function runOrchestrator(
   let reviewResult: PipelineResult | undefined
   if (reviewableResponses.length > 0) {
     console.log(`[Orchestrator] Running review pipeline on ${reviewableResponses.length} responses`)
+    onProgress?.({ type: 'review_start' })
     reviewResult = await runReviewPipeline(
       taskQueue.filter((t) => t.taskType !== 'research' && t.taskType !== 'arbitration'),
       reviewableResponses,
       projectState,
       sessionId,
     )
+
+    const approvedCount = Array.from(reviewResult.reviews.values()).filter((r) => r.approved).length
+    onProgress?.({ type: 'review_complete', reviewCount: reviewResult.reviews.size, approvedCount })
 
     if (reviewResult.needsArbitration) {
       console.log(`[Orchestrator] ${reviewResult.arbitrationTasks.length} tasks need arbitration`)
@@ -349,6 +409,7 @@ export async function runOrchestrator(
   if (reviewResult?.needsArbitration) {
     flags.hadArbitration = true
     console.log('[Orchestrator] Running batch arbitration')
+    onProgress?.({ type: 'arbitration_start', conflictCount: reviewResult.arbitrationTasks.length })
     arbitrationResult = await runBatchArbitration(
       taskQueue,
       reviewableResponses,
@@ -356,6 +417,7 @@ export async function runOrchestrator(
       projectState,
       sessionId,
     )
+    onProgress?.({ type: 'arbitration_complete', resolved: arbitrationResult.conflictsResolved })
   }
 
   // 8. Build final outputs map

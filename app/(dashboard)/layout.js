@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import { useUser } from '@/hooks/use-user'
 import { getSupabaseBrowser } from '@/lib/db/supabase-browser'
 
@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }) {
           <div className="flex items-center justify-between">
             {/* Left: Logo & Main Nav */}
             <div className="flex items-center gap-8">
-              <Link href="/dashboard" className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2" title="Back to homepage">
                 <span className="text-xl font-bold text-white">
                   Verity<span className="text-indigo-400">Flow</span>
                 </span>
@@ -54,6 +54,18 @@ export default function DashboardLayout({ children }) {
                   }`}
                 >
                   Usage
+                </Link>
+
+                <Link 
+                  href="/dashboard/settings" 
+                  className={`flex items-center gap-1.5 transition-colors ${
+                    pathname === '/dashboard/settings' 
+                      ? 'text-white font-medium' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Settings
                 </Link>
                 
                 {plan === 'free' ? (

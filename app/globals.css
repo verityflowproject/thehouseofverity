@@ -173,6 +173,17 @@
   50%       { box-shadow: 0 0 28px var(--vf-primary-glow), 0 0 48px var(--vf-primary-dim); }
 }
 
+@keyframes gradient-glow-border {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(99,102,241,0.4), 0 0 20px rgba(139,92,246,0.15);
+    border-color: rgba(99,102,241,0.5);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(99,102,241,0.6), 0 0 32px rgba(139,92,246,0.25);
+    border-color: rgba(139,92,246,0.6);
+  }
+}
+
 /* ─────────────────────────────────────────────────────
    VerityFlow – Animation Utility Classes
 ───────────────────────────────────────────────────── */
@@ -187,6 +198,7 @@
   .animate-gradient        { animation: gradient-shift  4s ease infinite; }
   .animate-float           { animation: float           3s ease-in-out infinite; }
   .animate-glow-pulse      { animation: glow-pulse      2s ease-in-out infinite; }
+  .animate-gradient-glow   { animation: gradient-glow-border 2.5s ease-in-out infinite; }
 
   /* Staggered delay variants (100ms … 800ms) */
   .delay-100  { animation-delay: 100ms; }

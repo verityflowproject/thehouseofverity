@@ -164,6 +164,9 @@ export default function FAQPage() {
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
                 Pricing
               </Link>
+              <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
+                Contact
+              </Link>
             </div>
 
             <div className="hidden md:flex items-center gap-3">
@@ -415,7 +418,8 @@ export default function FAQPage() {
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Developers</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/docs" className="text-gray-400 hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link href="/docs/api" className="text-gray-400 hover:text-white transition-colors">API Reference</Link></li>
+                <li><Link href="/docs/getting-started" className="text-gray-400 hover:text-white transition-colors">Getting Started</Link></li>
+                <li><Link href="/docs/credits" className="text-gray-400 hover:text-white transition-colors">Credit System</Link></li>
                 <li><Link href="/status" className="text-gray-400 hover:text-white transition-colors">Status</Link></li>
               </ul>
             </div>

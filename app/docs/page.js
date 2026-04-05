@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowLeft, Book, Code, Key } from 'lucide-react'
+import { ArrowLeft, Book, Key, ArrowRight } from 'lucide-react'
 
 export default function DocsPage() {
   return (
@@ -25,10 +25,13 @@ export default function DocsPage() {
                 The Council
               </a>
               <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
-                Compare
+                Dashboard
               </Link>
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
                 Pricing
+              </Link>
+              <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
+                Contact
               </Link>
             </div>
 
@@ -61,32 +64,27 @@ export default function DocsPage() {
           </p>
 
           {/* Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-colors">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            <Link
+              href="/docs/getting-started"
+              className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-indigo-500/40 transition-all"
+            >
               <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
                 <Book className="w-6 h-6 text-indigo-400" />
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">Getting Started</h3>
               <p className="text-sm text-gray-400 mb-4">
-                Create your account, buy credits, and run your first Council session — no API keys needed.
+                Create your account, run your first Council session, and understand your output — no API keys needed.
               </p>
-              <span className="text-sm text-gray-600">→ Coming soon</span>
-            </div>
+              <span className="inline-flex items-center gap-1 text-sm text-indigo-400 group-hover:text-indigo-300 transition-colors">
+                Read guide <ArrowRight className="w-3 h-3" />
+              </span>
+            </Link>
 
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-colors">
-              <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
-                <Code className="w-6 h-6 text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">API Reference</h3>
-              <p className="text-sm text-gray-400 mb-4">
-                Integrate VerityFlow into your own tools via our REST API.
-              </p>
-              <Link href="/docs/api" className="text-sm text-indigo-400 hover:text-indigo-300">
-                → Learn more
-              </Link>
-            </div>
-
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-colors">
+            <Link
+              href="/docs/credits"
+              className="group bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-indigo-500/40 transition-all"
+            >
               <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
                 <Key className="w-6 h-6 text-indigo-400" />
               </div>
@@ -94,19 +92,50 @@ export default function DocsPage() {
               <p className="text-sm text-gray-400 mb-4">
                 Understand how credits work, how costs are calculated, and how to read your usage dashboard.
               </p>
-              <Link href="/faq" className="text-sm text-indigo-400 hover:text-indigo-300">
-                → View FAQ
-              </Link>
+              <span className="inline-flex items-center gap-1 text-sm text-indigo-400 group-hover:text-indigo-300 transition-colors">
+                Read guide <ArrowRight className="w-3 h-3" />
+              </span>
+            </Link>
+          </div>
+
+          {/* Quick Links */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-semibold mb-6">Quick links</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { href: '/docs/getting-started#first-session', label: 'Running your first Council session' },
+                { href: '/docs/getting-started#output-tabs', label: 'Understanding Code / Preview / Files tabs' },
+                { href: '/docs/getting-started#tips', label: 'Tips for better prompts' },
+                { href: '/docs/credits#cost-per-session', label: 'How much does a session cost?' },
+                { href: '/docs/credits#plans', label: 'Subscriptions vs credit packs' },
+                { href: '/docs/credits#billing', label: 'Billing cycle and renewal' },
+                { href: '/faq', label: 'Frequently asked questions' },
+                { href: '/contact', label: 'Contact support' },
+              ].map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-3 px-4 py-3 bg-gray-900/30 border border-gray-800/50 rounded-lg hover:border-gray-700 hover:text-white text-gray-400 transition-all text-sm"
+                >
+                  <ArrowRight className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                  {label}
+                </Link>
+              ))}
             </div>
           </div>
 
           {/* Note */}
           <div className="p-6 bg-gray-900/30 border border-gray-800/50 rounded-lg">
             <p className="text-sm text-gray-400">
-              Full docs are in progress. In the meantime, the FAQ covers most common questions →{' '}
+              Have a question not covered here? Visit the{' '}
               <Link href="/faq" className="text-indigo-400 hover:text-indigo-300 underline">
-                View FAQ
+                FAQ
+              </Link>{' '}
+              or{' '}
+              <Link href="/contact" className="text-indigo-400 hover:text-indigo-300 underline">
+                contact us
               </Link>
+              .
             </p>
           </div>
         </div>
@@ -141,7 +170,8 @@ export default function DocsPage() {
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Developers</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/docs" className="text-gray-400 hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link href="/docs/api" className="text-gray-400 hover:text-white transition-colors">API Reference</Link></li>
+                <li><Link href="/docs/getting-started" className="text-gray-400 hover:text-white transition-colors">Getting Started</Link></li>
+                <li><Link href="/docs/credits" className="text-gray-400 hover:text-white transition-colors">Credit System</Link></li>
                 <li><Link href="/status" className="text-gray-400 hover:text-white transition-colors">Status</Link></li>
               </ul>
             </div>

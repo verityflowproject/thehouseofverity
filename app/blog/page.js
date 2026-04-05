@@ -1,7 +1,17 @@
 import Link from 'next/link'
-import { ArrowLeft, Terminal, Webhook, Database } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { BLOG_POSTS } from '@/lib/blog-data'
 
-export default function APIReferencePage() {
+const CATEGORY_COLORS = {
+  Engineering: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+  Product: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  Announcement: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  'Behind the Scenes': 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+}
+
+export default function BlogPage() {
+  const [featured, ...rest] = BLOG_POSTS
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       {/* Navigation */}
@@ -25,10 +35,13 @@ export default function APIReferencePage() {
                 The Council
               </a>
               <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
-                Compare
+                Dashboard
               </Link>
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
                 Pricing
+              </Link>
+              <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
+                Contact
               </Link>
             </div>
 
@@ -46,69 +59,72 @@ export default function APIReferencePage() {
 
       {/* Main Content */}
       <div className="pt-24 pb-20 px-6">
-        <div className="container mx-auto max-w-4xl">
+        <div className="container mx-auto max-w-5xl">
           <Link
-            href="/docs"
+            href="/"
             className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to docs</span>
+            <span>Back to home</span>
           </Link>
 
-          <h1 className="text-5xl font-bold mb-4">API Reference</h1>
-          <p className="text-xl text-gray-400 mb-4">
-            The VerityFlow API is in private beta.
-          </p>
-          <p className="text-gray-400 mb-16 leading-relaxed">
-            We're building a developer API that lets you run AI Council sessions programmatically — integrate VerityFlow directly into your CI/CD pipeline, your IDE, or your own tools.
+          <h1 className="text-5xl font-bold mb-4">Blog</h1>
+          <p className="text-xl text-gray-400 mb-16">
+            Engineering insights, product updates, and ideas from the team building VerityFlow.
           </p>
 
-          {/* What's Planned */}
-          <h2 className="text-2xl font-semibold mb-6">What's planned</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-              <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
-                <Terminal className="w-6 h-6 text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Council sessions via REST</h3>
-              <p className="text-sm text-gray-400">
-                POST a prompt, get reviewed output back
-              </p>
+          {/* Featured Post */}
+          <Link
+            href={`/blog/${featured.slug}`}
+            className="group block bg-gray-900/50 border border-gray-800 rounded-2xl p-8 hover:border-indigo-500/40 transition-all mb-8"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${CATEGORY_COLORS[featured.category] || 'bg-gray-800 text-gray-300 border-gray-700'}`}>
+                {featured.category}
+              </span>
+              <span className="text-xs text-gray-500">{featured.date}</span>
+              <span className="text-xs text-gray-600">·</span>
+              <span className="text-xs text-gray-500">{featured.readTime}</span>
             </div>
-
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-              <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
-                <Database className="w-6 h-6 text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">ProjectState sync</h3>
-              <p className="text-sm text-gray-400">
-                Read and write project context from external tools
-              </p>
-            </div>
-
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-              <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
-                <Webhook className="w-6 h-6 text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Webhook events</h3>
-              <p className="text-sm text-gray-400">
-                Get notified when sessions complete or reviews flag issues
-              </p>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div className="p-8 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl text-center">
-            <h3 className="text-2xl font-semibold mb-3">Join the API waitlist</h3>
-            <p className="text-gray-400 mb-6">
-              We'll notify you when the API is available for testing.
+            <h2 className="text-3xl font-bold text-white mb-3 group-hover:text-indigo-300 transition-colors">
+              {featured.title}
+            </h2>
+            <p className="text-gray-400 leading-relaxed mb-6">
+              {featured.summary}
             </p>
-            <Link
-              href="/contact"
-              className="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold transition-colors"
-            >
-              Request API access
-            </Link>
+            <span className="inline-flex items-center gap-2 text-sm text-indigo-400 group-hover:text-indigo-300 transition-colors font-medium">
+              Read article <ArrowRight className="w-4 h-4" />
+            </span>
+          </Link>
+
+          {/* Rest of posts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {rest.map((post) => (
+              <Link
+                key={post.slug}
+                href={`/blog/${post.slug}`}
+                className="group block bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-indigo-500/40 transition-all"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${CATEGORY_COLORS[post.category] || 'bg-gray-800 text-gray-300 border-gray-700'}`}>
+                    {post.category}
+                  </span>
+                  <span className="text-xs text-gray-500">{post.readTime}</span>
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-indigo-300 transition-colors leading-snug">
+                  {post.title}
+                </h3>
+                <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                  {post.summary}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">{post.date}</span>
+                  <span className="text-xs text-indigo-400 group-hover:text-indigo-300 transition-colors flex items-center gap-1">
+                    Read <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -142,7 +158,8 @@ export default function APIReferencePage() {
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Developers</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/docs" className="text-gray-400 hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link href="/docs/api" className="text-gray-400 hover:text-white transition-colors">API Reference</Link></li>
+                <li><Link href="/docs/getting-started" className="text-gray-400 hover:text-white transition-colors">Getting Started</Link></li>
+                <li><Link href="/docs/credits" className="text-gray-400 hover:text-white transition-colors">Credit System</Link></li>
                 <li><Link href="/status" className="text-gray-400 hover:text-white transition-colors">Status</Link></li>
               </ul>
             </div>

@@ -43,8 +43,8 @@ export default function ReviewLog({ projectId, compact = false }) {
   const stats = {
     total: reviews.length,
     approved: reviews.filter(r => r.outcome === 'approved').length,
-    arbitrated: reviews.filter(r => r.arbitrated).length,
-    totalTokens: reviews.reduce((sum, r) => sum + (r.tokensUsed || 0), 0)
+    arbitrated: reviews.filter(r => r.arbitrationRequired).length,
+    totalTokens: reviews.reduce((sum, r) => sum + (r.tokensUsed?.totalTokens || 0), 0)
   }
 
   // Filter reviews
@@ -130,10 +130,10 @@ export default function ReviewLog({ projectId, compact = false }) {
       <div className="space-y-2">
         {displayReviews.map((review) => (
           <ReviewEntry
-            key={review._id}
+            key={review.id}
             review={review}
-            isExpanded={expandedId === review._id}
-            onToggle={() => setExpandedId(expandedId === review._id ? null : review._id)}
+            isExpanded={expandedId === review.id}
+            onToggle={() => setExpandedId(expandedId === review.id ? null : review.id)}
             compact={compact}
           />
         ))}
@@ -210,7 +210,7 @@ function ReviewEntry({ review, isExpanded, onToggle, compact }) {
           </span>
 
           {/* Arbitration Badge */}
-          {review.arbitrated && (
+          {review.arbitrationRequired && (
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded text-xs font-medium">
               <Gavel className="w-3 h-3" />
               <span>Arbitrated</span>
@@ -252,8 +252,11 @@ function ReviewEntry({ review, isExpanded, onToggle, compact }) {
               <ul className="space-y-1">
                 {review.flaggedIssues.map((issue, i) => (
                   <li key={i} className="text-sm text-amber-300 flex items-start gap-2">
-                    <span className="text-amber-500">•</span>
-                    <span>{issue}</span>
+                    <span className="text-amber-500">{typeof issue === 'object' && issue.severity === 'error' ? '✕' : '•'}</span>
+                    <span>{typeof issue === 'string' ? issue : issue.message}</span>
+                    {typeof issue === 'object' && issue.autoFixed && (
+                      <span className="text-xs text-emerald-400 whitespace-nowrap">(auto-fixed)</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -270,7 +273,7 @@ function ReviewEntry({ review, isExpanded, onToggle, compact }) {
 
           {/* Metadata */}
           <div className="flex items-center gap-4 text-xs text-gray-500 pt-2 border-t border-gray-800">
-            <span>{review.tokensUsed?.toLocaleString() || 0} tokens</span>
+            <span>{(review.tokensUsed?.totalTokens || 0).toLocaleString()} tokens</span>
             <span>•</span>
             <span>{new Date(review.createdAt).toLocaleString()}</span>
           </div>

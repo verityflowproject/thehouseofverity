@@ -30,6 +30,9 @@ export default function ChangelogPage() {
               <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">
                 Pricing
               </Link>
+              <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
+                Contact
+              </Link>
             </div>
 
             <div className="hidden md:flex items-center gap-3">
@@ -62,6 +65,62 @@ export default function ChangelogPage() {
 
           {/* Timeline */}
           <div className="space-y-8">
+            {/* Version 0.2.0 */}
+            <div className="relative pl-8 border-l-2 border-indigo-500/30">
+              <div className="absolute -left-2 top-0 w-4 h-4 bg-indigo-500 rounded-full" />
+              
+              <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  <span className="px-3 py-1 bg-gray-800 rounded-full text-sm font-mono text-gray-300">
+                    v0.2.0
+                  </span>
+                  <span className="text-sm text-gray-500">April 2026</span>
+                  <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs rounded-full border border-indigo-500/30">
+                    Feature update
+                  </span>
+                </div>
+
+                <ul className="space-y-3 text-gray-300">
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Real-time SSE streaming — Council sessions now stream live progress as each model works, replacing the static loading state</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Live rendered HTML preview — output panel now renders HTML output live in a sandboxed iframe alongside the code view</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Codebase file tree viewer — multi-file outputs are parsed and displayed as a navigable file tree with per-file content view</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Auto-determined tech stack — removed manual tech stack selection from new project flow; council selects the most appropriate stack for each task</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Dashboard settings page — appearance, notification, session defaults, and privacy preferences stored locally</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Auth-aware navigation — homepage and all marketing pages show account state and direct dashboard link when signed in</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Persistent session cookies — sign-in state is maintained across visits without requiring re-authentication</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>Documentation hub — Getting Started guide and Credit System reference now live at /docs</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-indigo-400 mt-1">✦</span>
+                    <span>About, Blog, and Status pages — all previously 404 company pages are now live</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
             {/* Version 0.1.0 */}
             <div className="relative pl-8 border-l-2 border-indigo-500/30">
               <div className="absolute -left-2 top-0 w-4 h-4 bg-indigo-500 rounded-full" />
@@ -160,7 +219,8 @@ export default function ChangelogPage() {
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Developers</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/docs" className="text-gray-400 hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link href="/docs/api" className="text-gray-400 hover:text-white transition-colors">API Reference</Link></li>
+                <li><Link href="/docs/getting-started" className="text-gray-400 hover:text-white transition-colors">Getting Started</Link></li>
+                <li><Link href="/docs/credits" className="text-gray-400 hover:text-white transition-colors">Credit System</Link></li>
                 <li><Link href="/status" className="text-gray-400 hover:text-white transition-colors">Status</Link></li>
               </ul>
             </div>

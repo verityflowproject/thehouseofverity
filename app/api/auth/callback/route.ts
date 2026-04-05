@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
   }
 
   const cookieStore = cookies()
+  const cookiesToApply: Array<{ name: string; value: string; options: any }> = []
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -40,9 +42,10 @@ export async function GET(request: NextRequest) {
           return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          )
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+            cookiesToApply.push({ name, value, options })
+          })
         },
       },
     },
@@ -121,5 +124,9 @@ export async function GET(request: NextRequest) {
     console.error('[Auth Callback] Profile provisioning error:', provisionError)
   }
 
-  return NextResponse.redirect(`${origin}${safeNext}`)
+  const response = NextResponse.redirect(`${origin}${safeNext}`)
+  cookiesToApply.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options)
+  })
+  return response
 }
